@@ -1,4 +1,4 @@
-use bytes::{BytesMut};
+use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 
@@ -16,17 +16,17 @@ impl Connection {
         }
     }
 
-    pub async fn read_frame(&mut self) -> anyhow::Result<Option<String>>{
-        loop {
-            let n = self.stream.read_buf(&mut self.buffer).await?;
+    // read_frame TODO: loop read and parse http frame
+    pub async fn read_frame(&mut self) -> anyhow::Result<Option<String>> {
+        let n = self.stream.read_buf(&mut self.buffer).await?;
 
-            if n == 0 {
-                return Ok(None);
-            }
+        if n == 0 {
+            return Ok(None);
+        }
 
-            let data = String::from_utf8(self.buffer.to_vec())?;
-            self.buffer.clear();
-            return Ok(Some(data));        }
+        let data = String::from_utf8(self.buffer.to_vec())?;
+        self.buffer.clear();
+        Ok(Some(data))
     }
 
     pub async fn write_frame(&mut self, frame: &str) -> anyhow::Result<()> {

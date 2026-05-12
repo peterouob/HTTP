@@ -1,18 +1,18 @@
+use crate::error::TCPSocketError;
+use crate::{Connection, Shutdown};
+use anyhow::{Result, anyhow};
+use rand::RngExt;
+use socket2::{Domain, Protocol, Type};
 use std::io::ErrorKind;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tokio::sync::{Semaphore};
-use crate::{Shutdown,Connection};
-use anyhow::{anyhow, Result};
-use rand::RngExt;
-use socket2::{Domain, Protocol, Type};
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use crate::error::TCPSocketError;
 
 #[derive(Debug)]
 pub struct Listener {
@@ -30,7 +30,7 @@ pub struct Handle {
 
 const MAX_CONNECTIONS: usize = 4096;
 
-pub async fn run(addr:SocketAddr,shutdown: impl Future) {
+pub async fn run(addr: SocketAddr, shutdown: impl Future) {
     let token = CancellationToken::new();
     let join_set = JoinSet::new();
 
@@ -72,10 +72,7 @@ impl Listener {
     async fn run(&mut self) -> Result<()> {
         info!("accepting inbound connections");
         loop {
-            let permit = self.limit_connections
-                .clone()
-                .acquire_owned()
-                .await?;
+            let permit = self.limit_connections.clone().acquire_owned().await?;
 
             let socket = self.accept().await?;
             let child_token = self.token.clone();
@@ -89,15 +86,15 @@ impl Listener {
                 if let Err(err) = handler.run().await {
                     if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
                         match io_err.kind() {
-                            ErrorKind::ConnectionAborted |
-                            ErrorKind::BrokenPipe |
-                            ErrorKind::ConnectionReset => {
+                            ErrorKind::ConnectionAborted
+                            | ErrorKind::BrokenPipe
+                            | ErrorKind::ConnectionReset => {
                                 info!(cause = ?io_err, "listener closed, shutting down");
                             }
 
                             _ => error!(cause = ?io_err, "unexpected io error"),
                         }
-                    }else {
+                    } else {
                         error!(cause = ?err, "unexpected error in listener");
                     }
                 }
@@ -138,8 +135,9 @@ impl Listener {
     }
 }
 
-pub fn setup_tcp( addr: SocketAddr) -> Result<TcpListener> {
-    let socket = socket2::Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP)).map_err(|_| TCPSocketError::SocketConfig("failed to create socket".to_string()))?;
+pub fn setup_tcp(addr: SocketAddr) -> Result<TcpListener> {
+    let socket = socket2::Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))
+        .map_err(|_| TCPSocketError::SocketConfig("failed to create socket".to_string()))?;
     socket.set_reuse_address(true)?;
     socket.set_nonblocking(true)?;
     socket.set_tcp_nodelay(true)?;
@@ -150,11 +148,9 @@ pub fn setup_tcp( addr: SocketAddr) -> Result<TcpListener> {
     Ok(TcpListener::from_std(std_listen)?)
 }
 
-
 impl Handle {
-    pub async fn run(&mut self) -> Result<()>{
+    pub async fn run(&mut self) -> Result<()> {
         while !self.shutdown.is_shutdown() {
-
             let maybe_frame = tokio::select! {
                 res = self.connection.read_frame() => res?,
                 _ = self.shutdown.recv() => {
