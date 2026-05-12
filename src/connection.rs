@@ -18,17 +18,15 @@ impl Connection {
 
     pub async fn read_frame(&mut self) -> anyhow::Result<Option<String>>{
         loop {
-            if self.stream.read_buf(&mut self.buffer).await? == 0 {
+            let n = self.stream.read_buf(&mut self.buffer).await?;
+
+            if n == 0 {
                 return Ok(None);
             }
 
-            if !self.buffer.is_empty() {
-                let res = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHello World!";
-                let frame = res.to_string();
-                self.buffer.clear();
-                return Ok(Some(frame));
-            }
-        }
+            let data = String::from_utf8(self.buffer.to_vec())?;
+            self.buffer.clear();
+            return Ok(Some(data));        }
     }
 
     pub async fn write_frame(&mut self, frame: &str) -> anyhow::Result<()> {
