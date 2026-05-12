@@ -3,7 +3,7 @@
 ## Goal
 
 
-- [x] TCP Foundation & Concurrency(#tcp-foundation--concurrency)
+- [x] TCP Foundation & Concurrency
 - [ ] HTTP/1.1 Parser
 - [ ] Response & Routing
 - [ ] Connection Management
