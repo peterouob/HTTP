@@ -4,16 +4,24 @@ use crate::parse::error::ParseError;
 use crate::parse::http_method::Method;
 use crate::parse::surface::Header;
 
-pub struct HttpParser<'h,'b> {
-    pub errno: Option<ParseError>,
-    pub activite: Activite<'h,'b>,
-}
 
-pub enum Activite<'h,'b> {
-    Request(Request<'h,'b>),
-    Response(Response<'h,'b>),
-}
-
+/*
+ *  ----------------------------
+ *  start line
+ *  ----------------------------
+ *  [method] [path] [Protocol version]  
+ *  GET        /    HTTP/1.1
+ *  ----------------------------
+ *  header [field name]: [field value]
+ *  ----------------------------
+ *  Host: www.google.com 
+ *  Accept: text/html
+ *  ----------------------------
+ *  CRLF
+ *  ----------------------------
+ *  body
+ *  ----------------------------
+ * */
 
 #[derive(Debug)]
 pub struct Request<'h,'b> {
@@ -43,4 +51,9 @@ impl <'h,'b> fmt::Display for Response<'h,'b> {
         write(f,format_args!("version:{:?}, status_code:{:?}, msg:{:?}, headers:{:?}",
                               self.version, self.status_code, self.msg, self.headers))
     }
+}
+
+pub enum Status<T>{
+    Partial,
+    Complete(T),
 }
