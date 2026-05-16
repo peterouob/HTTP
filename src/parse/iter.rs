@@ -20,37 +20,32 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
-    pub fn peek_ahead(&self,n: usize) -> Option<u8> {
-        self.buf.get(self.cursor + n).copied()
+    pub fn peek_pos_n(&self,n: usize) -> Option<u8> {
+        let n = self.cursor.checked_add(n)?;
+        self.buf.get(n).copied()
     }
 
     #[inline]
-    pub fn peek_n<const N:usize>(&self) -> Option<[u8;N]> {
-        self.buf.get(self.cursor .. self.cursor + N)?.try_into().ok()
+    pub fn peek_after_cursor<const N:usize>(&self) -> Option<[u8;N]> {
+        let n = self.cursor.checked_add(N)?;
+        self.buf.get(self.cursor .. n)?.try_into().ok()
     }
 
+    // When advance return None, that mean it need more bytes
+    // So this is not error but need to handle to the status
     #[inline]
-    pub fn advance(&mut self,n: usize) -> anyhow::Result<()>{
-        if self.cursor + n > self.buf.len() {
-            Err(anyhow::anyhow!("unexpected end of buffer"))
-        }else{
-            self.cursor += n;
-            Ok(())
+    pub fn advance(&mut self,n: usize) -> Option<()>{
+        let advance_cursor = self.cursor.checked_add(n)?;
+        if advance_cursor > self.buf.len() {
+            return None
         }
+
+        self.cursor = advance_cursor;
+        Some(())
     }
 
     #[inline]
-    pub fn bump(&mut self) -> anyhow::Result<()> {
-        if self.cursor + 1 >= self.buf.len() {
-            Err(anyhow::anyhow!("unexpected end of buffer"))
-        }else {
-            self.cursor += 1;
-            Ok(())
-        }
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
+    pub fn len_remain(&self) -> usize {
         self.buf.len() - self.cursor
     }
 
@@ -60,34 +55,13 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
-    pub fn slice(&mut self) -> &'a [u8] {
-        let mut f= false;
-        if self.cursor >= self.buf.len() {
-            self.cursor = self.buf.len()-1;
-            f = true
-        }
-        let slice = &self.buf[self.start..=self.cursor];
-        if f {
-            self.cursor += 1;
-        }
-        self.commit();
-        slice
-    }
+    pub fn slice(&mut self) -> Option<&'a [u8]> {
+        debug_assert!(self.start <= self.cursor, "start > cursor");
+        debug_assert!(self.cursor < self.buf.len(), "cursor >= buf.len()");
 
-}
-
-impl<'a> Iterator for ParseBuffer<'a> {
-    type Item = u8;
-
-    #[inline]
-    fn next(&mut self) -> Option<u8> {
-        if self.cursor < self.buf.len() {
-            let b = self.buf[self.cursor];
-            self.cursor += 1;
-            Some(b)
-        }else{
-            None
-        }
+        let s = self.buf.get(self.start..self.cursor)?;
+        self.start = self.cursor;
+        Some(s)
     }
 }
 
@@ -96,39 +70,84 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_buffer_range() {
-        let mut buf = ParseBuffer::new(b"foo");
-        buf.advance(1).unwrap();
-        assert_eq!(buf.slice(), b"fo");
-        buf.advance(2).unwrap();
-        assert_eq!(buf.slice(), b"oo");
-        assert_eq!(buf.advance(1).is_err(), true);
-    }
-
-    #[test]
-    fn test_buffer_iter() {
-        let mut buf = ParseBuffer::new(b"fof");
-        assert_eq!(buf.peek(), Some(b'f'));
-        assert_eq!(buf.peek_n(), Some(*b"fof"));
-        assert_eq!(buf.peek_ahead(2), Some(b'f'));
-        assert_eq!(buf.len(), "fof".as_bytes().len());
-        assert_eq!(buf.next(), Some(b'f'));
+    fn test_parse_buffer() {
+        let mut buf = ParseBuffer::new(b"hello world");
+        assert_eq!(buf.len_remain(), 11);
+        buf = ParseBuffer::new(b"");
+        assert_eq!(buf.len_remain(), 0);
         assert_eq!(buf.start,0);
-        assert_eq!(buf.cursor,1);
-        assert_eq!(buf.slice(), b"fo");
-        assert_eq!(buf.next(), Some(b'o'));
-        assert_eq!(buf.cursor,2);
-        assert_eq!(buf.slice(), b"of");
-        assert_eq!(buf.next(), Some(b'f'));
-        assert_eq!(buf.cursor,3);
+        assert_eq!(buf.cursor,0);
     }
 
     #[test]
-    fn test_buffer_bump() {
-        let mut buf = ParseBuffer::new(b"foo");
-        assert_eq!(buf.bump().is_ok(), true);
-        assert_eq!(buf.cursor,1);
-        assert_eq!(buf.advance(2).is_ok(),true);
-        assert_eq!(buf.bump().is_err(), true);
+    fn test_buffer_peek() {
+        let mut buf = ParseBuffer::new(b"hello");
+        assert_eq!(buf.peek(),Some(b'h'));
+        buf.advance(2).unwrap();
+        assert_eq!(buf.peek(),Some(b'l'));
+        buf.commit();
+        buf.advance(3).unwrap();
+        assert_eq!(buf.peek(),None);
+        buf.commit();
+        assert_eq!(buf.advance(1).unwrap_or(()),());
+
+        buf = ParseBuffer::new(b"hl");
+        buf.advance(2).unwrap();
+        assert_eq!(buf.peek(),None);
+
+        buf = ParseBuffer::new(b"");
+        assert_eq!(buf.peek(),None);
+
+        buf = ParseBuffer::new(b"hello world");
+        buf.advance(2).unwrap();
+        assert_eq!(buf.peek_after_cursor(),Some(*b"llo world"));
+        assert_eq!(buf.peek_pos_n(5), Some(b'o'));
+        assert_eq!(buf.peek_pos_n(1000), None)
+    }
+
+    #[test]
+    fn test_buffer_slice() {
+        let mut buf = ParseBuffer::new(b"GET /path");
+        buf.advance(3).unwrap();
+        assert_eq!(buf.len_remain(),6);
+        assert_eq!(buf.slice(),Some(b"GET".as_slice()));
+        assert_eq!(buf.start,buf.cursor);
+        buf.advance(1).unwrap();
+        buf.commit();
+        buf.advance(5).unwrap();
+        assert_eq!(buf.slice(),Some(b"/path".as_slice()));
+    }
+
+    #[test]
+    fn test_buffer() {
+        let mut buf = ParseBuffer::new(b"GET /path HTTP/1.1\r\n");
+        assert_eq!(buf.peek_after_cursor::<4>(), Some(*b"GET "));
+        assert_eq!(buf.peek_pos_n(3), Some(b' '));
+        buf.advance(3).unwrap();
+        assert_eq!(buf.slice(), Some(b"GET".as_slice()));
+        buf.advance(1).unwrap();
+        assert_eq!(buf.cursor,4);
+        assert_eq!(buf.peek(), Some(b'/'));
+        buf.commit();
+        while let Some(b) = buf.peek() {
+            if b == b' ' {
+                break
+            }
+            buf.advance(1).unwrap();
+        }
+
+        assert_eq!(buf.slice(), Some(b"/path".as_slice()));
+        buf.advance(1).unwrap();
+        buf.commit();
+        while let Some(b) = buf.peek() {
+            if b == b'\r' {
+                assert_eq!(buf.slice(), Some(b"HTTP/1.1".as_slice()));
+                buf.commit();
+                buf.advance(2).unwrap();
+                assert_eq!(buf.slice(), Some(b"\r\n".as_slice()));
+                break
+            }
+            buf.advance(1).unwrap();
+        }
     }
 }
