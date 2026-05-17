@@ -1,7 +1,7 @@
 pub struct ParseBuffer<'a> {
     buf: &'a [u8],
     start: usize,
-    cursor: usize,
+    pub cursor: usize,
 }
 
 impl<'a> ParseBuffer<'a> {
@@ -62,6 +62,13 @@ impl<'a> ParseBuffer<'a> {
         let s = self.buf.get(self.start..self.cursor)?;
         self.start = self.cursor;
         Some(s)
+    }
+
+    #[inline]
+    pub fn next_byte(&mut self) -> Option<u8> {
+        let b = self.buf.get(self.cursor).copied()?;
+        self.cursor += 1;
+        Some(b)
     }
 }
 
