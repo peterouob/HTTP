@@ -13,6 +13,35 @@ macro_rules! byte_map {
     }}
 }
 
+static TOKEN_MAP: [bool; 256] = byte_map!(
+    b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' |
+    b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' |  b'*' | b'+' |
+    b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~'
+);
+
+#[inline]
+pub(crate) fn is_header_name(b: u8) -> bool {
+    TOKEN_MAP[b as usize]
+}
+
+static URL_MAP: [bool;256] = byte_map!(
+    b'!'..=0x7E | 0x80..=0xFF
+);
+
+#[inline]
+pub(crate) fn is_url_token(b: u8) -> bool {
+    URL_MAP[b as usize]
+}
+
+static HEADER_VALUE_MAP: [bool; 256] = byte_map!(
+  b'\t' | b' '..=0x7E | 0x80..=0xFF
+);
+
+#[inline]
+pub(crate) fn is_header_value(b: u8) -> bool {
+    HEADER_VALUE_MAP[b as usize]
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::type_name;
