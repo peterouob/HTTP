@@ -1,4 +1,3 @@
-
 macro_rules! next {
     ($bytes: ident) => {
         match $bytes.next() {
