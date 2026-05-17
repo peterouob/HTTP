@@ -13,6 +13,14 @@ macro_rules! byte_map {
     }}
 }
 
+#[inline]
+fn is_method_token(b: u8) -> bool {
+    match b {
+        b'A'..=b'Z' | b'a'..=b'z' => true,
+        _ => false,
+    }
+}
+
 static TOKEN_MAP: [bool; 256] = byte_map!(
     b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' |
     b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' |  b'*' | b'+' |
