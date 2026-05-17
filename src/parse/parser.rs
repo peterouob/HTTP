@@ -1,9 +1,6 @@
 use std::fmt;
 use std::fmt::{write, Formatter};
-use crate::parse::error::ParseError;
 use crate::parse::http_method::Method;
-use crate::parse::surface::Header;
-
 
 /*
  *  ----------------------------
@@ -22,6 +19,13 @@ use crate::parse::surface::Header;
  *  body
  *  ----------------------------
  * */
+
+
+#[derive(Debug)]
+pub struct Header<'buf> {
+    name: &'buf str,
+    value: &'buf [u8],
+}
 
 #[derive(Debug)]
 pub struct Request<'h,'b> {
@@ -53,7 +57,69 @@ impl <'h,'b> fmt::Display for Response<'h,'b> {
     }
 }
 
+#[derive(Copy, Clone,PartialOrd, PartialEq,Debug)]
 pub enum Status<T>{
     Partial,
     Complete(T),
+}
+
+impl<T> Status<T> {
+    #[inline]
+    pub fn is_complete(&self) -> bool {
+        match *self {
+            Status::Complete(..) => true,
+            Status::Partial => false
+        }
+    }
+
+    #[inline]
+    pub fn is_partial(&self) -> bool {
+        match *self {
+            Status::Partial => true,
+            Status::Complete(..) => false
+        }
+    }
+
+    #[inline]
+    pub fn unwrap(self) -> T {
+        match self {
+            Status::Complete(t) => t,
+            Status::Partial => panic!("Tried to unwrap Status::Partial")
+        }
+    }
+}
+
+pub enum RequestTarget<'buf> {
+    Origin {
+        path: &'buf [u8],
+        query: Option<&'buf [u8]>,
+    },
+    Absolute(&'buf [u8]),
+    Authority(&'buf [u8]),
+    Asterisk(Option<&'buf [u8]>),
+}
+
+pub enum BodyKind {
+    None,
+    ContentLength(u64),
+    Chunked,
+}
+
+pub struct Chunked<'buf> {
+    buffer: &'buf [u8],
+}
+
+pub(crate) enum CoreRule {
+    ALPHA,
+    DIGIT,
+    HEXDIG,
+    SP,
+    HTAB,
+    WSP,
+    VCHAR,
+    CTL,
+    CRLF,
+    CR,
+    LF,
+    DQUOTE,
 }
