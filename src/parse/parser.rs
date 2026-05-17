@@ -1,6 +1,10 @@
+use crate::next;
 use std::fmt;
 use std::fmt::{write, Formatter};
+use crate::expect;
+use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::http_method::Method;
+use crate::parse::iter::ParseBuffer;
 
 /*
  *  ----------------------------
@@ -21,24 +25,37 @@ use crate::parse::http_method::Method;
  * */
 
 
-#[derive(Debug)]
+#[derive(Debug,Eq,PartialEq)]
 pub struct Header<'buf> {
     name: &'buf str,
     value: &'buf [u8],
 }
 
-#[derive(Debug)]
+#[derive(Debug,Eq, PartialEq)]
 pub struct Request<'h,'b> {
-    pub method: Method<'b>,
+    pub method: Option<Method<'b>>,
     pub path: Option<&'b str>,
     pub version: Option<u8>,
-    pub h: &'h mut [Header<'b>]
+    pub headers: &'h mut [Header<'b>]
 }
 
 impl <'h,'b> fmt::Display for Request<'h, 'b> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write(f, format_args!("method:{:?}, path:{:?}, version:{:?}, h:{:?}",
-                              self.method, self.path, self.version, self.h))
+        write(f, format_args!("method:{:?}, path:{:?}, version:{:?}, headers:{:?}",
+                              self.method, self.path, self.version, self.headers))
+    }
+}
+
+impl <'h,'b> Request<'h,'b> {
+
+    #[inline]
+    pub fn new(headers: &'h mut [Header<'b>]) -> Request<'h,'b> {
+        Request {
+            method: None,
+            path: None,
+            version: None,
+            headers,
+        }
     }
 }
 
@@ -89,37 +106,78 @@ impl<T> Status<T> {
     }
 }
 
-pub enum RequestTarget<'buf> {
-    Origin {
-        path: &'buf [u8],
-        query: Option<&'buf [u8]>,
-    },
-    Absolute(&'buf [u8]),
-    Authority(&'buf [u8]),
-    Asterisk(Option<&'buf [u8]>),
+#[inline]
+fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
+    loop {
+        let b = bytes.peek();
+        match b {
+            Some(b'\r') => {
+                bytes.advance(1);
+                expect!(bytes.peek()== b'\n' => Err(ParseError::NewLine));
+            }
+            Some(b'\n') => {
+                bytes.advance(1);
+            }
+            Some(..) => {
+                bytes.slice();
+                return Ok(Status::Complete(()))
+            }
+            None => return Ok(Status::Partial)
+        }
+    }
 }
 
-pub enum BodyKind {
-    None,
-    ContentLength(u64),
-    Chunked,
+#[inline]
+fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()>{
+    loop {
+        let b = bytes.peek();
+        match b {
+            Some(b' ') => {
+                bytes.advance(1);
+            }
+            Some(..) => {
+                bytes.slice();
+                return Ok(Status::Complete(()))
+            },
+            None => return Ok(Status::Partial)
+        }
+    }
 }
 
-pub struct Chunked<'buf> {
-    buffer: &'buf [u8],
-}
+#[cfg(test)]
+mod test {
+    use super::*;
 
-pub(crate) enum CoreRule {
-    ALPHA,
-    DIGIT,
-    HEXDIG,
-    SP,
-    HTAB,
-    WSP,
-    VCHAR,
-    CTL,
-    CRLF,
-    CR,
-    LF,
-    DQUOTE,
+    #[test]
+    fn test_skip_empty_line() {
+        let mut buf = ParseBuffer::new(b"Hello");
+        assert_eq!(skip_empty_line(&mut buf).unwrap(), Status::Complete(()));
+        assert_eq!(buf.cursor, 0);
+
+        let mut buf = ParseBuffer::new(b"\r\nHello");
+        assert_eq!(skip_empty_line(&mut buf).unwrap(), Status::Complete(()));
+        assert_eq!(buf.cursor, 2);
+
+        let mut buf = ParseBuffer::new(b"\nHello");
+        assert_eq!(skip_empty_line(&mut buf).unwrap(), Status::Complete(()));
+        assert_eq!(buf.cursor, 1);
+
+        let mut buf = ParseBuffer::new(b"");
+        assert_eq!(skip_empty_line(&mut buf).unwrap(), Status::Partial);
+
+        let mut buf = ParseBuffer::new(b"\r\n");
+        assert_eq!(skip_empty_line(&mut buf).unwrap(), Status::Partial);
+
+        let mut buf = ParseBuffer::new(b"\rHello");
+        assert!(skip_empty_line(&mut buf).is_err());
+    }
+
+    #[test]
+    fn test_skip_space_line() {
+        let mut buf = ParseBuffer::new(b" Hello");
+        assert_eq!(skip_space_line(&mut buf).unwrap(), Status::Complete(()));
+
+        let mut buf = ParseBuffer::new(b" ");
+        assert_eq!(skip_space_line(&mut buf).unwrap(), Status::Partial);
+    }
 }
