@@ -7,11 +7,11 @@ pub struct ParseBuffer<'a> {
 impl<'a> ParseBuffer<'a> {
     #[inline]
     pub fn new(buf: &'a [u8]) -> Self {
-       Self {
+        Self {
             buf,
             start: 0,
             cursor: 0,
-       }
+        }
     }
 
     #[inline]
@@ -20,24 +20,24 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
-    pub fn peek_pos_n(&self,n: usize) -> Option<u8> {
+    pub fn peek_pos_n(&self, n: usize) -> Option<u8> {
         let n = self.cursor.checked_add(n)?;
         self.buf.get(n).copied()
     }
 
     #[inline]
-    pub fn peek_after_cursor<const N:usize>(&self) -> Option<[u8;N]> {
+    pub fn peek_after_cursor<const N: usize>(&self) -> Option<[u8; N]> {
         let n = self.cursor.checked_add(N)?;
-        self.buf.get(self.cursor .. n)?.try_into().ok()
+        self.buf.get(self.cursor..n)?.try_into().ok()
     }
 
     // When advance return None, that mean it need more bytes
     // So this is not error but need to handle to the status
     #[inline]
-    pub fn advance(&mut self,n: usize) -> Option<()>{
+    pub fn advance(&mut self, n: usize) -> Option<()> {
         let advance_cursor = self.cursor.checked_add(n)?;
         if advance_cursor > self.buf.len() {
-            return None
+            return None;
         }
 
         self.cursor = advance_cursor;
@@ -82,32 +82,32 @@ mod test {
         assert_eq!(buf.len_remain(), 11);
         buf = ParseBuffer::new(b"");
         assert_eq!(buf.len_remain(), 0);
-        assert_eq!(buf.start,0);
-        assert_eq!(buf.cursor,0);
+        assert_eq!(buf.start, 0);
+        assert_eq!(buf.cursor, 0);
     }
 
     #[test]
     fn test_buffer_peek() {
         let mut buf = ParseBuffer::new(b"hello");
-        assert_eq!(buf.peek(),Some(b'h'));
+        assert_eq!(buf.peek(), Some(b'h'));
         buf.advance(2).unwrap();
-        assert_eq!(buf.peek(),Some(b'l'));
+        assert_eq!(buf.peek(), Some(b'l'));
         buf.commit();
         buf.advance(3).unwrap();
-        assert_eq!(buf.peek(),None);
+        assert_eq!(buf.peek(), None);
         buf.commit();
-        assert_eq!(buf.advance(1).unwrap_or(()),());
+        assert_eq!(buf.advance(1).unwrap_or(()), ());
 
         buf = ParseBuffer::new(b"hl");
         buf.advance(2).unwrap();
-        assert_eq!(buf.peek(),None);
+        assert_eq!(buf.peek(), None);
 
         buf = ParseBuffer::new(b"");
-        assert_eq!(buf.peek(),None);
+        assert_eq!(buf.peek(), None);
 
         buf = ParseBuffer::new(b"hello world");
         buf.advance(2).unwrap();
-        assert_eq!(buf.peek_after_cursor(),Some(*b"llo world"));
+        assert_eq!(buf.peek_after_cursor(), Some(*b"llo world"));
         assert_eq!(buf.peek_pos_n(5), Some(b'o'));
         assert_eq!(buf.peek_pos_n(1000), None)
     }
@@ -116,13 +116,13 @@ mod test {
     fn test_buffer_slice() {
         let mut buf = ParseBuffer::new(b"GET /path");
         buf.advance(3).unwrap();
-        assert_eq!(buf.len_remain(),6);
-        assert_eq!(buf.slice(),Some(b"GET".as_slice()));
-        assert_eq!(buf.start,buf.cursor);
+        assert_eq!(buf.len_remain(), 6);
+        assert_eq!(buf.slice(), Some(b"GET".as_slice()));
+        assert_eq!(buf.start, buf.cursor);
         buf.advance(1).unwrap();
         buf.commit();
         buf.advance(5).unwrap();
-        assert_eq!(buf.slice(),Some(b"/path".as_slice()));
+        assert_eq!(buf.slice(), Some(b"/path".as_slice()));
     }
 
     #[test]
@@ -133,12 +133,12 @@ mod test {
         buf.advance(3).unwrap();
         assert_eq!(buf.slice(), Some(b"GET".as_slice()));
         buf.advance(1).unwrap();
-        assert_eq!(buf.cursor,4);
+        assert_eq!(buf.cursor, 4);
         assert_eq!(buf.peek(), Some(b'/'));
         buf.commit();
         while let Some(b) = buf.peek() {
             if b == b' ' {
-                break
+                break;
             }
             buf.advance(1).unwrap();
         }
@@ -152,7 +152,7 @@ mod test {
                 buf.commit();
                 buf.advance(2).unwrap();
                 assert_eq!(buf.slice(), Some(b"\r\n".as_slice()));
-                break
+                break;
             }
             buf.advance(1).unwrap();
         }

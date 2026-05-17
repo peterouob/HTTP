@@ -1,21 +1,21 @@
-use crate::next;
-use std::fmt;
-use std::fmt::{write, Formatter};
 use crate::expect;
+use crate::next;
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::http_method::Method;
 use crate::parse::iter::ParseBuffer;
+use std::fmt;
+use std::fmt::{Formatter, write};
 
 /*
  *  ----------------------------
  *  start line
  *  ----------------------------
- *  [method] [path] [Protocol version]  
+ *  [method] [path] [Protocol version]
  *  GET        /    HTTP/1.1
  *  ----------------------------
  *  header [field name]: [field value]
  *  ----------------------------
- *  Host: www.google.com 
+ *  Host: www.google.com
  *  Accept: text/html
  *  ----------------------------
  *  CRLF
@@ -24,32 +24,35 @@ use crate::parse::iter::ParseBuffer;
  *  ----------------------------
  * */
 
-
-#[derive(Debug,Eq,PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Header<'buf> {
     name: &'buf str,
     value: &'buf [u8],
 }
 
-#[derive(Debug,Eq, PartialEq)]
-pub struct Request<'h,'b> {
+#[derive(Debug, Eq, PartialEq)]
+pub struct Request<'h, 'b> {
     pub method: Option<Method<'b>>,
     pub path: Option<&'b str>,
     pub version: Option<u8>,
-    pub headers: &'h mut [Header<'b>]
+    pub headers: &'h mut [Header<'b>],
 }
 
-impl <'h,'b> fmt::Display for Request<'h, 'b> {
+impl<'h, 'b> fmt::Display for Request<'h, 'b> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write(f, format_args!("method:{:?}, path:{:?}, version:{:?}, headers:{:?}",
-                              self.method, self.path, self.version, self.headers))
+        write(
+            f,
+            format_args!(
+                "method:{:?}, path:{:?}, version:{:?}, headers:{:?}",
+                self.method, self.path, self.version, self.headers
+            ),
+        )
     }
 }
 
-impl <'h,'b> Request<'h,'b> {
-
+impl<'h, 'b> Request<'h, 'b> {
     #[inline]
-    pub fn new(headers: &'h mut [Header<'b>]) -> Request<'h,'b> {
+    pub fn new(headers: &'h mut [Header<'b>]) -> Request<'h, 'b> {
         Request {
             method: None,
             path: None,
@@ -60,22 +63,27 @@ impl <'h,'b> Request<'h,'b> {
 }
 
 #[derive(Debug)]
-pub struct Response<'h,'b> {
+pub struct Response<'h, 'b> {
     pub version: Option<u16>,
     pub status_code: Option<u8>,
     pub msg: Option<&'b str>,
-    pub headers: &'h mut [Header<'b>]
+    pub headers: &'h mut [Header<'b>],
 }
 
-impl <'h,'b> fmt::Display for Response<'h,'b> {
+impl<'h, 'b> fmt::Display for Response<'h, 'b> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write(f,format_args!("version:{:?}, status_code:{:?}, msg:{:?}, headers:{:?}",
-                              self.version, self.status_code, self.msg, self.headers))
+        write(
+            f,
+            format_args!(
+                "version:{:?}, status_code:{:?}, msg:{:?}, headers:{:?}",
+                self.version, self.status_code, self.msg, self.headers
+            ),
+        )
     }
 }
 
-#[derive(Copy, Clone,PartialOrd, PartialEq,Debug)]
-pub enum Status<T>{
+#[derive(Copy, Clone, PartialOrd, PartialEq, Debug)]
+pub enum Status<T> {
     Partial,
     Complete(T),
 }
@@ -85,7 +93,7 @@ impl<T> Status<T> {
     pub fn is_complete(&self) -> bool {
         match *self {
             Status::Complete(..) => true,
-            Status::Partial => false
+            Status::Partial => false,
         }
     }
 
@@ -93,7 +101,7 @@ impl<T> Status<T> {
     pub fn is_partial(&self) -> bool {
         match *self {
             Status::Partial => true,
-            Status::Complete(..) => false
+            Status::Complete(..) => false,
         }
     }
 
@@ -101,7 +109,7 @@ impl<T> Status<T> {
     pub fn unwrap(self) -> T {
         match self {
             Status::Complete(t) => t,
-            Status::Partial => panic!("Tried to unwrap Status::Partial")
+            Status::Partial => panic!("Tried to unwrap Status::Partial"),
         }
     }
 }
@@ -120,15 +128,15 @@ fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
             }
             Some(..) => {
                 bytes.slice();
-                return Ok(Status::Complete(()))
+                return Ok(Status::Complete(()));
             }
-            None => return Ok(Status::Partial)
+            None => return Ok(Status::Partial),
         }
     }
 }
 
 #[inline]
-fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()>{
+fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
     loop {
         let b = bytes.peek();
         match b {
@@ -137,9 +145,9 @@ fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()>{
             }
             Some(..) => {
                 bytes.slice();
-                return Ok(Status::Complete(()))
-            },
-            None => return Ok(Status::Partial)
+                return Ok(Status::Complete(()));
+            }
+            None => return Ok(Status::Partial),
         }
     }
 }

@@ -1,7 +1,7 @@
-use std::fmt;
 use crate::parse::parser::Status;
+use std::fmt;
 
-#[derive(Copy, Clone,Eq, PartialEq,Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ParseError {
     HeaderName,
     HeaderValue,
@@ -12,7 +12,7 @@ pub enum ParseError {
     Version,
 }
 
-pub(crate) type ParseResult<T> = Result<Status<T>,ParseError>;
+pub(crate) type ParseResult<T> = Result<Status<T>, ParseError>;
 
 impl ParseError {
     #[inline]

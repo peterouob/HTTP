@@ -1,7 +1,7 @@
 macro_rules! byte_map {
     ($(|)? $p:pat) => {{
-        const fn make_map() -> [bool;256] {
-            let mut ret = [false;256];
+        const fn make_map() -> [bool; 256] {
+            let mut ret = [false; 256];
             let mut i = 0;
             while i < 256 {
                 ret[i] = matches!(i as u8, $p);
@@ -10,7 +10,7 @@ macro_rules! byte_map {
             ret
         }
         make_map()
-    }}
+    }};
 }
 
 #[inline]
@@ -32,7 +32,7 @@ pub(crate) fn is_header_name(b: u8) -> bool {
     TOKEN_MAP[b as usize]
 }
 
-static URL_MAP: [bool;256] = byte_map!(
+static URL_MAP: [bool; 256] = byte_map!(
     b'!'..=0x7E | 0x80..=0xFF
 );
 
@@ -59,7 +59,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_digit()  {
+    fn test_is_digit() {
         let map = byte_map!(
     b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' |
     b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' |  b'*' | b'+' |
