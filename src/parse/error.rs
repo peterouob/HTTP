@@ -74,3 +74,5 @@ pub enum ParseError {
     #[error("unexpected end of stream after {0} bytes")]
     UnexpectedEof(usize),
 }
+
+pub(crate) type Result<T> = std::result::Result<T,ParseError>;
