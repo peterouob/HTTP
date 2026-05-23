@@ -72,6 +72,13 @@ impl<'a> ParseBuffer<'a> {
     }
 }
 
+impl AsRef<[u8]> for ParseBuffer<'_> {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.buf.get(self.start .. self.cursor).unwrap_or(&[])
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -156,5 +163,17 @@ mod test {
             }
             buf.advance(1).unwrap();
         }
+    }
+
+    #[test]
+    fn test_as_ref() {
+        let mut buf = ParseBuffer::new(b"GET /path HTTP/1.1\r\n");
+        buf.advance(2);
+        assert_eq!(buf.as_ref(), b"GE");
+        assert_eq!(buf.as_ref().len(), 2);
+
+        let buf = ParseBuffer::new(b"");
+        assert_eq!(buf.as_ref(), b"");
+        assert_eq!(buf.as_ref().len(), 0);
     }
 }
