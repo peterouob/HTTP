@@ -74,7 +74,14 @@ impl Listener {
         loop {
             let permit = self.limit_connections.clone().acquire_owned().await?;
 
-            let socket = self.accept().await?;
+            let socket = match self.accept().await {
+                Ok(socket) => socket,
+                Err(err) => {
+                    error!(cause = ?err, "failed to accept connection");
+                    continue;
+                }
+            };
+
             let child_token = self.token.clone();
 
             let mut handler = Handle {
@@ -82,7 +89,7 @@ impl Listener {
                 shutdown: Shutdown::new(child_token),
             };
 
-            tokio::spawn(async move {
+            self.join_set.spawn(async move {
                 if let Err(err) = handler.run().await {
                     if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
                         match io_err.kind() {
@@ -105,7 +112,8 @@ impl Listener {
     }
 
     async fn accept(&mut self) -> Result<tokio::net::TcpStream> {
-        let mut backoff = Duration::from_millis(1).as_secs_f32();
+        let mut backoff = 1.0_f32;
+        let max_delay = 120.0_f32;
         let mut retries = 5;
         loop {
             match self.listener.accept().await {
@@ -117,20 +125,14 @@ impl Listener {
                 }
             }
 
-            let max_delay = Duration::from_millis(120).as_secs_f32();
-
-            if backoff >= max_delay {
-                retries -= 1;
-                time::sleep(Duration::from_millis(max_delay as u64)).await;
-            }
-
-            backoff = (backoff * 1.1).min(max_delay);
             let mut rng = rand::rng();
             let jittered = backoff * (1.0 + 0.2 * rng.random::<f32>());
             let sleep_time = jittered.min(max_delay);
 
-            retries -= 1;
             time::sleep(Duration::from_millis(sleep_time as u64)).await;
+            backoff = (backoff * 1.1).min(max_delay);
+
+            retries -= 1;
         }
     }
 }
@@ -150,7 +152,7 @@ pub fn setup_tcp(addr: SocketAddr) -> Result<TcpListener> {
 
 impl Handle {
     pub async fn run(&mut self) -> Result<()> {
-        while !self.shutdown.is_shutdown() {
+         loop {
             let maybe_frame = tokio::select! {
                 res = self.connection.read_frame() => res?,
                 _ = self.shutdown.recv() => {
@@ -168,6 +170,5 @@ impl Handle {
             self.connection.write_frame(&frame).await?;
         }
 
-        Ok(())
     }
 }
