@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use crate::{complete, expect};
 use crate::next;
 use crate::parse::error::{ParseError, ParseResult};
-use crate::parse::http_method::Method;
 use crate::parse::iter::ParseBuffer;
 use std::fmt;
 use std::fmt::{Formatter, write};
@@ -184,7 +183,32 @@ pub fn parse_method<'a>(bytes: &mut ParseBuffer<'a>)  -> Result<Status<&'a str>,
             todo!()
         }
     }
+}
 
+#[inline]
+pub fn parse_version(bytes: &mut ParseBuffer) -> ParseResult<u8> {
+    if let Some(eight) = bytes.peek_after_cursor::<8>() {
+        const H10:u64 = u64::from_be_bytes(*b"HTTP/1.0");
+        const H11:u64 = u64::from_be_bytes(*b"HTTP/1.1");
+
+        bytes.advance(8);
+
+        return match u64::from_be_bytes(eight) {
+            H10 => Ok(Status::Complete(0)),
+            H11 => Ok(Status::Complete(1)),
+            _ => Err(ParseError::Version)
+        };
+    }
+
+    expect!(bytes.peek() == b'H' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'T' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'T' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'P' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'/' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'1' => Err(ParseError::Version));
+    expect!(bytes.peek() == b'.' => Err(ParseError::Version));
+
+    Ok(Status::Partial)
 }
 
 #[cfg(test)]
@@ -235,11 +259,67 @@ mod test {
 
     #[test]
     fn test_parse_request_header() {
-        let mut buf =  b"GET / HTTP/1.1\r\n";
+        let buf =  b"GET / HTTP/1.1\r\n";
         let mut vec = Vec::new();
         let mut request = Request::new(&mut vec);
         request.parse_header(&mut HeaderMap{header: HashMap::new()}, buf).unwrap();
 
         assert_eq!(request.method, Some("GET"));
+    }
+
+    #[test]
+    fn test_parse_version() {
+        let mut buf = ParseBuffer::new(b"HTTP/1.1");
+        let r = parse_version(&mut buf).unwrap();
+        assert_eq!(r, Status::Complete(1));
+
+        let mut buf = ParseBuffer::new(b"HTTP/1.0");
+        let r = parse_version(&mut buf).unwrap();
+        assert_eq!(r, Status::Complete(0));
+
+        let cases: &[&[u8]] = &[
+            b"",
+            b"H",
+            b"HT",
+            b"HTT",
+            b"HTTP",
+            b"HTTP/",
+            b"HTTP/1",
+            b"HTTP/1.",
+        ];
+
+        for &input in cases {
+            let mut buf = ParseBuffer::new(input);
+            let result = parse_version(&mut buf).unwrap();
+            assert_eq!(
+                result,
+                Status::Partial,
+                "input {:?} should be Partial",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_version_invalid() {
+        let error_cases: &[&[u8]] = &[
+            b"XTTP/1.1",
+            b"HXTP/1.1",
+            b"HTXP/1.1",
+            b"HTTX/1.1",
+            b"HTTPX1.1",
+            b"HTTP/X.1",
+            b"HTTP/1X1",
+        ];
+
+        for &input in error_cases {
+            let mut buf = ParseBuffer::new(input);
+            let result = parse_version(&mut buf);
+            assert!(
+                matches!(result, Err(ParseError::Version)),
+                "input {:?} should be Err(Version)",
+                input
+            );
+        }
     }
 }
