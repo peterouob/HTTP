@@ -4,7 +4,7 @@ use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
 use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
-use crate::parse::tchar::is_url_token;
+use crate::parse::tchar::{is_method_token, is_url_token};
 
 #[inline]
 pub(crate) fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
@@ -51,20 +51,38 @@ pub(crate) fn parse_method<'a>(bytes: &mut ParseBuffer<'a>)  -> Result<Status<&'
     match bytes.peek_after_cursor::<4>() {
         Some(GET) => {
             let method = {
-                bytes.advance(3);
-                str::from_utf8(bytes.slice().unwrap()).unwrap()
+                bytes.advance(4);
+                str::from_utf8(bytes.sub_slice(1).unwrap()).unwrap()
             };
             Ok(Complete(method))
         }
         Some(POST) => {
             let method = {
-                bytes.advance(4);
-                str::from_utf8(bytes.slice().unwrap()).unwrap()
+                bytes.advance(5);
+                str::from_utf8(bytes.sub_slice(1).unwrap()).unwrap()
             };
             Ok(Complete(method))
         }
         _ => {
-            todo!()
+            parse_token(bytes)
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn parse_token<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str> {
+    let b = next!(bytes);
+    if !is_method_token(b) {
+        return Err(ParseError::Token)
+    }
+
+    loop {
+        let b= next!(bytes);
+        if b == b' ' {
+            let s = bytes.sub_slice(1).unwrap();
+            return Ok(Complete(str::from_utf8(s).unwrap()));
+        }else if !is_method_token(b) {
+            return Err(ParseError::Token)
         }
     }
 }
@@ -107,8 +125,8 @@ pub(crate) fn parse_uri<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str>
 
     if next!(bytes) == b' ' {
 
-        let slice = match bytes.slice().and_then(|s| s.split_last()) {
-            Some((_last,slice)) => slice,
+        let slice = match bytes.sub_slice(1) {
+            Some(slice) => slice,
             _ =>return Err(ParseError::Token)
         };
 
