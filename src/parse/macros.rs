@@ -32,6 +32,23 @@ macro_rules! complete {
     };
 }
 
+#[macro_export]
+macro_rules! newline {
+    ($bytes:ident) => ({
+        match next!($bytes) {
+            b'\r' => {
+                expect!($bytes.peek() == b'\n' => Err(ParseError::NewLine));
+                println!("{}",$bytes.cursor);
+                $bytes.slice();
+            },
+            b'\n' => {
+                $bytes.slice();
+            },
+            _ => return Err(ParseError::NewLine)
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parse::error::ParseResult;
