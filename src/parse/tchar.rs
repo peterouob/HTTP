@@ -15,10 +15,7 @@ macro_rules! byte_map {
 
 #[inline]
 fn is_method_token(b: u8) -> bool {
-    match b {
-        b'A'..=b'Z' | b'a'..=b'z' => true,
-        _ => false,
-    }
+    matches!(b,b'A'..=b'Z' | b'a'..=b'z')
 }
 
 static TOKEN_MAP: [bool; 256] = byte_map!(
@@ -53,18 +50,14 @@ pub(crate) fn is_header_value(b: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use std::any::type_name;
-
+    use super::*;
     fn type_of<T>(_: T) -> &'static str {
         type_name::<T>()
     }
 
     #[test]
     fn test_is_digit() {
-        let map = byte_map!(
-    b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' |
-    b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' |  b'*' | b'+' |
-    b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~');
-
+        let map = TOKEN_MAP;
         assert_eq!(type_of(map), "[bool; 256]");
     }
 }
