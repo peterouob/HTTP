@@ -1,7 +1,19 @@
+use std::fmt;
+use std::fmt::write;
+
 pub struct ParseBuffer<'a> {
     buf: &'a [u8],
     start: usize,
     pub cursor: usize,
+}
+
+impl<'a> fmt::Display for ParseBuffer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write(f,
+        format_args!(
+            "buf:{:?}", str::from_utf8(self.buf)
+        ))
+    }
 }
 
 impl<'a> ParseBuffer<'a> {
@@ -57,7 +69,7 @@ impl<'a> ParseBuffer<'a> {
     #[inline]
     pub fn slice(&mut self) -> Option<&'a [u8]> {
         debug_assert!(self.start <= self.cursor, "start > cursor");
-        debug_assert!(self.cursor < self.buf.len(), "cursor >= buf.len()");
+        debug_assert!(self.cursor <= self.buf.len(), "cursor > buf.len()");
 
         let s = self.buf.get(self.start..self.cursor)?;
         self.start = self.cursor;
@@ -67,12 +79,15 @@ impl<'a> ParseBuffer<'a> {
     #[inline]
     pub fn sub_slice(&mut self, sub_n: usize) -> Option<&'a [u8]> {
         debug_assert!(self.start <= self.cursor, "start > cursor");
-        debug_assert!(self.cursor < self.buf.len(), "cursor >= buf.len()");
+        debug_assert!(self.cursor <= self.buf.len(), "cursor >= buf.len()");
 
-        let s = self.buf
-            .len()
-            .checked_sub(sub_n)
-            .and_then(|n| self.buf.get(..n))?;
+        let end = self.cursor.checked_sub(sub_n)?;
+
+        if self.start > end {
+            return None;
+        }
+
+        let s = &self.buf[self.start..end];
 
         self.start = self.cursor;
         Some(s)
