@@ -65,6 +65,20 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
+    pub fn sub_slice(&mut self, sub_n: usize) -> Option<&'a [u8]> {
+        debug_assert!(self.start <= self.cursor, "start > cursor");
+        debug_assert!(self.cursor < self.buf.len(), "cursor >= buf.len()");
+
+        let s = self.buf
+            .len()
+            .checked_sub(sub_n)
+            .and_then(|n| self.buf.get(..n))?;
+
+        self.start = self.cursor;
+        Some(s)
+    }
+
+    #[inline]
     pub fn next_byte(&mut self) -> Option<u8> {
         let b = self.buf.get(self.cursor).copied()?;
         self.cursor += 1;
@@ -175,5 +189,12 @@ mod test {
         let buf = ParseBuffer::new(b"");
         assert_eq!(buf.as_ref(), b"");
         assert_eq!(buf.as_ref().len(), 0);
+    }
+
+    #[test]
+    fn test_sub_slice() {
+        let mut buf = ParseBuffer::new(b"12345678");
+        assert_eq!(buf.sub_slice(1),Some(b"1234567".as_slice()));
+        assert_eq!(buf.sub_slice(2),Some(b"123456".as_slice()));
     }
 }
