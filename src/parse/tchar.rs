@@ -14,7 +14,7 @@ macro_rules! byte_map {
 }
 
 #[inline]
-fn is_method_token(b: u8) -> bool {
+pub(crate) fn is_method_token(b: u8) -> bool {
     matches!(b,b'A'..=b'Z' | b'a'..=b'z')
 }
 
