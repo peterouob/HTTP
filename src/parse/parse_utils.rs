@@ -152,11 +152,9 @@ pub(crate) fn match_uri_token(b: &mut ParseBuffer) {
             }
         }
 
-        if let Some(byte) = b.peek() {
-            if is_url_token(byte) {
+        if let Some(byte) = b.peek() && is_url_token(byte) {
                 b.advance(1);
                 continue;
-            }
         }
 
         break;
