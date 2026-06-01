@@ -14,6 +14,7 @@
 1. [TCP Foundation & Concurrency](#tcp-foundation--concurrency)
 2. [HTTP/1.1 Parser](#http-parser-function)
 3. [Radix tree Router](#radix-tree-router)
+4. [Reference](#reference)
 ---
 
 # TCP Foundation & Concurrency
@@ -210,6 +211,8 @@ start-line (\r\n)                     status-line (\r\n)
 
 # Radix Tree Router
 
+[visualization](https://www.cs.usfca.edu/~galles/visualization/RadixTree.html)
+
 ## Data Structure
 
 ```text
@@ -259,3 +262,10 @@ k2: [ a ][ p ][ p ][ l ][ i ][ c ][ a ][ t ][ i ][ o ][ n ]
                           └─ stop → lcp = 4
 
 ```
+
+# Reference
+
+- [httparse](https://docs.rs/httparse/latest/httparse/) 
+- [graceful-shutdown](https://hyper.rs/guides/1/server/graceful-shutdown/)
+- [radix-tree](https://xixiliguo.github.io/algorithm/radix-tree)
+- [go-radix-tree](https://github.com/armon/go-radix)
