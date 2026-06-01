@@ -1,11 +1,13 @@
-# HTTP 
+# HTTP http server
+
+- This is a sample and safety http server
 
 ## Goal
 
-* [x] TCP Foundation & Concurrency
-* [x] HTTP/1.1 Parser
-* [ ] Response & Routing
-* [ ] Connection Management
+- [x] TCP Foundation & Concurrency
+- [x] HTTP/1.1 Parser
+- [ ] Response & Routing
+- [ ] Connection Management
 
 ---
 
@@ -15,6 +17,7 @@
 2. [HTTP/1.1 Parser](#http-parser-function)
 3. [Radix tree Router](#radix-tree-router)
 4. [Reference](#reference)
+
 ---
 
 # TCP Foundation & Concurrency
@@ -227,10 +230,12 @@ RadixTree<T>
 
 ```
 
-## Insert Easy Example: 
+## Insert Easy Example:
+
 1. Insert "app" with value `one`
 2. Insert "apple" with value `two`
 3. Insert "application" with value `three` → causes split at `l`
+
 ```text
 Step 1: insert(b"app", "one")
   root
@@ -265,7 +270,7 @@ k2: [ a ][ p ][ p ][ l ][ i ][ c ][ a ][ t ][ i ][ o ][ n ]
 
 # Reference
 
-- [httparse](https://docs.rs/httparse/latest/httparse/) 
+- [httparse](https://docs.rs/httparse/latest/httparse/)
 - [graceful-shutdown](https://hyper.rs/guides/1/server/graceful-shutdown/)
 - [radix-tree](https://xixiliguo.github.io/algorithm/radix-tree)
 - [go-radix-tree](https://github.com/armon/go-radix)
