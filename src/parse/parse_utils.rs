@@ -4,7 +4,7 @@ use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
 use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
-use crate::parse::tchar::{is_method_token, is_url_token};
+use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
 
 #[inline]
 pub(crate) fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
@@ -164,14 +164,83 @@ pub(crate) fn match_uri_token(b: &mut ParseBuffer) {
 const BLOCK_SIZE: usize = size_of::<usize>();
 type Block = [u8; BLOCK_SIZE];
 
+// TODO: reference httparse use swar algorithm instead the function
+// 1. match_uri_char
+// 2. match_header_value_char
 #[inline]
 fn match_uri_char(b: Block) -> usize{
     for (i, &b) in b.iter().enumerate() {
-        if b < 33 || b == 127 {
+        if b < 33 || b == 127{
             return i;
         }
     }
     BLOCK_SIZE
+}
+
+#[inline]
+pub fn match_header_value(bytes: &mut ParseBuffer) {
+    loop {
+        if let Some(b8) = bytes.peek_after_cursor::<BLOCK_SIZE>() {
+            let n = match_header_value_char(b8);
+            bytes.advance(n);
+
+            if n == BLOCK_SIZE {
+                continue
+            }
+        }
+
+        if let Some(byte) = bytes.peek() {
+            if is_header_value(byte) {
+                bytes.advance(1);
+                continue;
+            }
+        }
+
+        break;
+    }
+}
+
+#[inline]
+fn match_header_value_char(b: Block) -> usize{
+    for (i, &b) in b.iter().enumerate() {
+        if b < 32 || b == 127{
+            return i;
+        }
+    }
+    BLOCK_SIZE
+}
+
+#[inline]
+pub fn match_header_name_vector(bytes: &mut ParseBuffer) {
+    while let Some(b) = bytes.peek_after_cursor::<BLOCK_SIZE>() {
+        let n = match_full_block_size(is_header_name_token, b);
+        bytes.advance(n);
+        if n != BLOCK_SIZE {
+            return;
+        }
+    }
+
+    bytes.advance(match_block_size(is_header_name_token,bytes.as_ref()));
+}
+
+#[inline]
+fn match_full_block_size(f: impl Fn(u8)->bool,b: Block) -> usize{
+    for (i, &b) in b.iter().enumerate() {
+        if !f(b) {
+            return i;
+        }
+    }
+    BLOCK_SIZE
+}
+
+#[inline]
+fn match_block_size(f: impl Fn(u8)->bool,block: &[u8]) -> usize {
+    for (i, &b) in block.iter().enumerate() {
+        if !f(b) {
+            return i
+        }
+    }
+    block.len()
 }
 
 #[cfg(test)]
