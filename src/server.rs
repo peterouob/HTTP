@@ -171,14 +171,11 @@ impl Handle {
                 },
                 None => return Ok(()),
             };
-             println!("frame:{:?}",frame.as_bytes());
 
-             let parse_frame = ParseBuffer::new(frame.as_bytes());
              let mut headers = HeaderMap::new();
              let mut req = Request::new(&mut headers);
 
-             println!("req:{:?}",req);
-             let result = req.parse_header(parse_frame.buf.as_ref());
+             let result = req.parse_header(frame.as_ref());
 
              match result {
                  Ok(Complete(()))=> {
