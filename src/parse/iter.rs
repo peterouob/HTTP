@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::write;
 
 pub struct ParseBuffer<'a> {
-    buf: &'a [u8],
+    pub buf: &'a [u8],
     start: usize,
     pub cursor: usize,
 }
@@ -209,7 +209,11 @@ mod test {
     #[test]
     fn test_sub_slice() {
         let mut buf = ParseBuffer::new(b"12345678");
+        buf.advance(8).unwrap();
         assert_eq!(buf.sub_slice(1),Some(b"1234567".as_slice()));
+
+        let mut buf = ParseBuffer::new(b"12345678");
+        buf.advance(8).unwrap();
         assert_eq!(buf.sub_slice(2),Some(b"123456".as_slice()));
     }
 }
