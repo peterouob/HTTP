@@ -25,7 +25,7 @@ static TOKEN_MAP: [bool; 256] = byte_map!(
 );
 
 #[inline]
-pub(crate) fn is_header_name(b: u8) -> bool {
+pub(crate) fn is_header_name_token(b: u8) -> bool {
     TOKEN_MAP[b as usize]
 }
 

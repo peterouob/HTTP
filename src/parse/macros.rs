@@ -38,7 +38,6 @@ macro_rules! newline {
         match next!($bytes) {
             b'\r' => {
                 expect!($bytes.peek() == b'\n' => Err(ParseError::NewLine));
-                println!("{}",$bytes.cursor);
                 $bytes.slice();
             },
             b'\n' => {

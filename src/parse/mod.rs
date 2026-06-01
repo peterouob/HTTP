@@ -1,7 +1,7 @@
 mod error;
 
-mod iter;
+pub mod iter;
 mod macros;
-mod parser;
+pub mod parser;
 mod tchar;
 mod parse_utils;
