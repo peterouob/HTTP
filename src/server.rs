@@ -13,6 +13,9 @@ use tokio::task::JoinSet;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+use crate::parse::iter::ParseBuffer;
+use crate::parse::parser::{HeaderMap, Request, Status};
+use crate::parse::parser::Status::Complete;
 
 #[derive(Debug)]
 pub struct Listener {
@@ -163,11 +166,34 @@ impl Handle {
 
             // TODO: use http frame instead currently hardcode message
             let frame = match maybe_frame {
-                Some(frame) => frame,
+                Some(frame) => {
+                    frame
+                },
                 None => return Ok(()),
             };
+             println!("frame:{:?}",frame.as_bytes());
 
-            self.connection.write_frame(&frame).await?;
+             let parse_frame = ParseBuffer::new(frame.as_bytes());
+             let mut headers = HeaderMap::new();
+             let mut req = Request::new(&mut headers);
+
+             println!("req:{:?}",req);
+             let result = req.parse_header(parse_frame.buf.as_ref());
+
+             match result {
+                 Ok(Complete(()))=> {
+                     println!("complete result: {:?}", result);
+                 },
+                 Ok(Status::Partial) => {
+                     println!("partial result: {:?}", result);
+                 },
+                 Err(err) => {
+                     println!("{}",err)
+                 }
+             }
+
+             println!("req:{:?}",req);
+            // self.connection.write_frame(&frame).await?;
         }
 
     }
