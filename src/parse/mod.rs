@@ -5,3 +5,6 @@ mod macros;
 pub mod parser;
 mod tchar;
 mod parse_utils;
+
+#[cfg(test)]
+mod tests;

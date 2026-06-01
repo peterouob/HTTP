@@ -48,6 +48,14 @@ macro_rules! newline {
     })
 }
 
+#[macro_export]
+macro_rules! space {
+    ($bytes:ident or $err:expr) => ({
+        expect!($bytes.peek()==b' ' => Err($err));
+        $bytes.slice();
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parse::error::ParseResult;

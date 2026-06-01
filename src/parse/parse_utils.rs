@@ -1,4 +1,4 @@
-use crate::next;
+use crate::{complete, next};
 use crate::expect;
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
@@ -40,6 +40,35 @@ fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
                 return Ok(Complete(()));
             }
             None => return Ok(Status::Partial),
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn parse_status_code(bytes: &mut ParseBuffer<'_>) -> Result<Status<u16>,ParseError> {
+    let hundreds = expect!(bytes.peek() == b'0'..=b'9' => Err(ParseError::StatusCode));
+    let ten = expect!(bytes.peek() == b'0'..=b'9' => Err(ParseError::StatusCode));
+    let one = expect!(bytes.peek() == b'1'..=b'9' => Err(ParseError::StatusCode));
+
+    Ok(Complete((hundreds - b'0') as u16 * 100 + (ten - b'0') as u16 * 10 + (one - b'0') as u16))
+}
+
+#[inline]
+pub(crate) fn parse_reason<'a>(bytes: &mut ParseBuffer<'a>) -> Result<Status<&'a str>, ParseError> {
+    loop {
+        let b = next!(bytes);
+
+        if b == b'\r' {
+            expect!(bytes.peek() == b'\n'=> Err(ParseError::NewLine));
+            let bytes = bytes.sub_slice(2).unwrap();
+            let slice = str::from_utf8(bytes).unwrap();
+            return Ok(Complete(slice))
+        }else if b == b'\n' {
+            let bytes = bytes.sub_slice(1).unwrap();
+            let slice = str::from_utf8(bytes).unwrap();
+            return Ok(Complete(slice))
+        }else if !(b == 0x90 || b == b' ' || (0x21..=0x7E).contains(&b) || b >= 0x80) {
+            return Err(ParseError::StatusCode)
         }
     }
 }

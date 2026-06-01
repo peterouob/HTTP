@@ -6,10 +6,11 @@ pub enum ParseError {
     HeaderName,
     HeaderValue,
     NewLine,
-    Status,
+    StatusCode,
     Token,
     TooManyHeaders,
     Version,
+    Reason,
 }
 
 pub(crate) type ParseResult<T> = Result<Status<T>, ParseError>;
@@ -21,10 +22,11 @@ impl ParseError {
             ParseError::HeaderName => "invalid header name",
             ParseError::HeaderValue => "invalid header value",
             ParseError::NewLine => "invalid new line",
-            ParseError::Status => "invalid response status",
+            ParseError::StatusCode => "invalid response status",
             ParseError::Token => "invalid token",
             ParseError::TooManyHeaders => "too many headers",
             ParseError::Version => "invalid HTTP version",
+            ParseError::Reason => "invalid reason",
         }
     }
 }
