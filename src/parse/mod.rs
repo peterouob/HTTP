@@ -2,9 +2,9 @@ mod error;
 
 pub mod iter;
 mod macros;
+mod parse_utils;
 pub mod parser;
 mod tchar;
-mod parse_utils;
 
 #[cfg(test)]
 mod tests;

@@ -1,12 +1,15 @@
-use crate::{next, space};
-use std::collections::HashMap;
-use crate::{complete, expect, newline};
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
-use crate::parse::parse_utils::{skip_empty_line, parse_method, parse_uri, parse_version, match_header_name_vector, match_header_value, parse_status_code, parse_reason};
+use crate::parse::parse_utils::{
+    match_header_name_vector, match_header_value, parse_method, parse_reason, parse_status_code,
+    parse_uri, parse_version, skip_empty_line,
+};
+use crate::parse::tchar::{is_header_name_token, is_header_value};
+use crate::{complete, expect, newline};
+use crate::{next, space};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Formatter, write};
-use crate::parse::tchar::{is_header_name_token, is_header_value};
 /*
  *  ----------------------------
  *  start line
@@ -25,13 +28,17 @@ use crate::parse::tchar::{is_header_name_token, is_header_value};
  *  ----------------------------
  * */
 
-#[derive(Debug,Eq,PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct HeaderMap<'buf> {
     pub(crate) header: HashMap<&'buf str, &'buf [u8]>,
 }
 
 impl<'buf> HeaderMap<'buf> {
-    pub fn new() -> Self { HeaderMap { header: HashMap::new() } }
+    pub fn new() -> Self {
+        HeaderMap {
+            header: HashMap::new(),
+        }
+    }
 
     pub fn insert(&mut self, key: &'buf str, value: &'buf [u8]) {
         self.header.insert(key, value);
@@ -69,7 +76,7 @@ impl<'h, 'b> Request<'h, 'b> {
         }
     }
 
-    pub fn parse_header(&mut self, bytes: &'b [u8])-> Result<Status<()>, ParseError> {
+    pub fn parse_header(&mut self, bytes: &'b [u8]) -> Result<Status<()>, ParseError> {
         let mut bytes = ParseBuffer::new(bytes);
         complete!(skip_empty_line(&mut bytes));
         let method = complete!(parse_method(&mut bytes));
@@ -84,29 +91,32 @@ impl<'h, 'b> Request<'h, 'b> {
     }
 }
 
-pub fn parse_header_iter<'a>(bytes: &mut ParseBuffer<'a>,headers: &mut HeaderMap<'a>) -> ParseResult<usize> {
+pub fn parse_header_iter<'a>(
+    bytes: &mut ParseBuffer<'a>,
+    headers: &mut HeaderMap<'a>,
+) -> ParseResult<usize> {
     let start = bytes.as_ref().as_ptr() as usize;
     let mut result = Err(ParseError::TooManyHeaders);
 
-     loop {
+    loop {
         let b = next!(bytes);
 
         if b == b'\r' {
             expect!(bytes.peek()==b'\n'=>Err(ParseError::NewLine));
             let end = bytes.as_ref().as_ptr() as usize;
-            result = Ok(Status::Complete(end-start));
-            break
+            result = Ok(Status::Complete(end - start));
+            break;
         }
 
         if b == b'\n' {
             let end = bytes.as_ref().as_ptr() as usize;
-            result = Ok(Status::Complete(end-start));
-            break
+            result = Ok(Status::Complete(end - start));
+            break;
         }
 
         if !is_header_name_token(b) {
             result = Err(ParseError::HeaderName);
-            break
+            break;
         }
 
         let header_name: &str = 'name: loop {
@@ -119,15 +129,13 @@ pub fn parse_header_iter<'a>(bytes: &mut ParseBuffer<'a>,headers: &mut HeaderMap
             let name = str::from_utf8(bslice.unwrap()).unwrap();
 
             if b == b':' {
-                break 'name name
+                break 'name name;
             }
-
         };
 
         let mut b;
 
         let header_value_slice = 'value: loop {
-
             'whitespace_after_colon: loop {
                 b = next!(bytes);
 
@@ -142,8 +150,8 @@ pub fn parse_header_iter<'a>(bytes: &mut ParseBuffer<'a>,headers: &mut HeaderMap
 
                 if b == b'\r' {
                     expect!(bytes.peek()==b'\n'=>Err(ParseError::NewLine));
-                }else if b != b'\n' {
-                   return  Err(ParseError::HeaderValue);
+                } else if b != b'\n' {
+                    return Err(ParseError::HeaderValue);
                 }
 
                 let whitespace_slice = bytes.slice().unwrap();
@@ -151,30 +159,29 @@ pub fn parse_header_iter<'a>(bytes: &mut ParseBuffer<'a>,headers: &mut HeaderMap
                 break 'value &whitespace_slice[0..0];
             }
 
-             loop {
+            loop {
                 match_header_value(bytes);
                 let b = next!(bytes);
 
                 let skip_num = if b == b'\r' {
                     expect!(bytes.peek()==b'\n'=>Err(ParseError::NewLine));
                     2
-                }else if b == b'\n' {
+                } else if b == b'\n' {
                     1
-                }else {
+                } else {
                     return Err(ParseError::HeaderValue);
                 };
 
-               break 'value bytes.sub_slice(skip_num).unwrap();
+                break 'value bytes.sub_slice(skip_num).unwrap();
             }
         };
-
 
         let header_value = if let Some(last_visible) = header_value_slice
             .iter()
             .rposition(|b| *b != b' ' && *b != b'\t' && *b != b'\r' && *b != b'\n')
         {
-            &header_value_slice[..last_visible+1]
-        }else {
+            &header_value_slice[..last_visible + 1]
+        } else {
             header_value_slice
         };
 
@@ -197,7 +204,7 @@ impl<'h, 'b> fmt::Display for Response<'h, 'b> {
             f,
             format_args!(
                 "version:{:?}, status_code:{:?}, msg:{:?}, headers:{:?}",
-                self.version, self.status_code, self.headers,self.reason
+                self.version, self.status_code, self.headers, self.reason
             ),
         )
     }
@@ -227,23 +234,22 @@ impl<'h, 'b> Response<'h, 'b> {
             b' ' => {
                 bytes.slice();
                 self.reason = Some(complete!(parse_reason(&mut bytes)));
-            },
+            }
             b'\r' => {
                 expect!(bytes.peek()==b'\n'=>Err(ParseError::NewLine));
                 bytes.slice();
                 self.reason = Some("");
-            },
+            }
             b'\n' => {
                 bytes.slice();
                 self.reason = Some("");
-            },
-            _ => return Err(ParseError::Reason)
+            }
+            _ => return Err(ParseError::Reason),
         }
 
         complete!(parse_header_iter(&mut bytes, self.headers));
         Ok(Status::Complete(()))
     }
-
 }
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Debug)]

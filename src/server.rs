@@ -1,4 +1,7 @@
 use crate::error::TCPSocketError;
+use crate::parse::iter::ParseBuffer;
+use crate::parse::parser::Status::Complete;
+use crate::parse::parser::{HeaderMap, Request, Status};
 use crate::{Connection, Shutdown};
 use anyhow::{Result, anyhow};
 use rand::RngExt;
@@ -13,9 +16,6 @@ use tokio::task::JoinSet;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use crate::parse::iter::ParseBuffer;
-use crate::parse::parser::{HeaderMap, Request, Status};
-use crate::parse::parser::Status::Complete;
 
 #[derive(Debug)]
 pub struct Listener {
@@ -155,7 +155,7 @@ pub fn setup_tcp(addr: SocketAddr) -> Result<TcpListener> {
 
 impl Handle {
     pub async fn run(&mut self) -> Result<()> {
-         loop {
+        loop {
             let maybe_frame = tokio::select! {
                 res = self.connection.read_frame() => res?,
                 _ = self.shutdown.recv() => {
@@ -166,32 +166,29 @@ impl Handle {
 
             // TODO: use http frame instead currently hardcode message
             let frame = match maybe_frame {
-                Some(frame) => {
-                    frame
-                },
+                Some(frame) => frame,
                 None => return Ok(()),
             };
 
-             let mut headers = HeaderMap::new();
-             let mut req = Request::new(&mut headers);
+            let mut headers = HeaderMap::new();
+            let mut req = Request::new(&mut headers);
 
-             let result = req.parse_header(frame.as_ref());
+            let result = req.parse_header(frame.as_ref());
 
-             match result {
-                 Ok(Complete(()))=> {
-                     println!("complete result: {:?}", result);
-                 },
-                 Ok(Status::Partial) => {
-                     println!("partial result: {:?}", result);
-                 },
-                 Err(err) => {
-                     println!("{}",err)
-                 }
-             }
+            match result {
+                Ok(Complete(())) => {
+                    println!("complete result: {:?}", result);
+                }
+                Ok(Status::Partial) => {
+                    println!("partial result: {:?}", result);
+                }
+                Err(err) => {
+                    println!("{}", err)
+                }
+            }
 
-             println!("req:{:?}",req);
+            println!("req:{:?}", req);
             // self.connection.write_frame(&frame).await?;
         }
-
     }
 }

@@ -1,5 +1,5 @@
-use crate::parse::parser::*;
 use crate::parse::error::*;
+use crate::parse::parser::*;
 #[test]
 fn test_get_with_common_headers() {
     let mut headers = HeaderMap::new();
@@ -15,10 +15,22 @@ fn test_get_with_common_headers() {
     assert_eq!(req.method, Some("GET"));
     assert_eq!(req.path, Some("/index.html"));
     assert_eq!(req.version, Some(1));
-    assert_eq!(req.headers.header.get("Host"),       Some(&b"example.com"[..].as_ref()));
-    assert_eq!(req.headers.header.get("User-Agent"), Some(&b"Mozilla/5.0"[..].as_ref()));
-    assert_eq!(req.headers.header.get("Accept"),     Some(&b"text/html"[..].as_ref()));
-    assert_eq!(req.headers.header.get("Connection"), Some(&b"keep-alive"[..].as_ref()));
+    assert_eq!(
+        req.headers.header.get("Host"),
+        Some(&b"example.com"[..].as_ref())
+    );
+    assert_eq!(
+        req.headers.header.get("User-Agent"),
+        Some(&b"Mozilla/5.0"[..].as_ref())
+    );
+    assert_eq!(
+        req.headers.header.get("Accept"),
+        Some(&b"text/html"[..].as_ref())
+    );
+    assert_eq!(
+        req.headers.header.get("Connection"),
+        Some(&b"keep-alive"[..].as_ref())
+    );
 }
 
 #[test]
@@ -34,8 +46,14 @@ fn test_post_with_content_headers() {
     assert_eq!(result, Ok(Status::Complete(())));
     assert_eq!(req.method, Some("POST"));
     assert_eq!(req.path, Some("/submit"));
-    assert_eq!(req.headers.header.get("Content-Type"),   Some(&b"application/json"[..].as_ref()));
-    assert_eq!(req.headers.header.get("Content-Length"), Some(&b"42"[..].as_ref()));
+    assert_eq!(
+        req.headers.header.get("Content-Type"),
+        Some(&b"application/json"[..].as_ref())
+    );
+    assert_eq!(
+        req.headers.header.get("Content-Length"),
+        Some(&b"42"[..].as_ref())
+    );
 }
 
 #[test]
@@ -59,7 +77,10 @@ fn test_header_with_ows() {
 
     let result = req.parse_header(input.as_bytes());
     assert_eq!(result, Ok(Status::Complete(())));
-    assert_eq!(req.headers.header.get("Host"), Some(&b"example.com"[..].as_ref()));
+    assert_eq!(
+        req.headers.header.get("Host"),
+        Some(&b"example.com"[..].as_ref())
+    );
 }
 
 #[test]

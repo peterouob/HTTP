@@ -9,10 +9,7 @@ pub struct ParseBuffer<'a> {
 
 impl<'a> fmt::Display for ParseBuffer<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write(f,
-        format_args!(
-            "buf:{:?}", str::from_utf8(self.buf)
-        ))
+        write(f, format_args!("buf:{:?}", str::from_utf8(self.buf)))
     }
 }
 
@@ -104,7 +101,7 @@ impl<'a> ParseBuffer<'a> {
 impl AsRef<[u8]> for ParseBuffer<'_> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        self.buf.get(self.start .. self.cursor).unwrap_or(&[])
+        self.buf.get(self.start..self.cursor).unwrap_or(&[])
     }
 }
 
@@ -210,10 +207,10 @@ mod test {
     fn test_sub_slice() {
         let mut buf = ParseBuffer::new(b"12345678");
         buf.advance(8).unwrap();
-        assert_eq!(buf.sub_slice(1),Some(b"1234567".as_slice()));
+        assert_eq!(buf.sub_slice(1), Some(b"1234567".as_slice()));
 
         let mut buf = ParseBuffer::new(b"12345678");
         buf.advance(8).unwrap();
-        assert_eq!(buf.sub_slice(2),Some(b"123456".as_slice()));
+        assert_eq!(buf.sub_slice(2), Some(b"123456".as_slice()));
     }
 }

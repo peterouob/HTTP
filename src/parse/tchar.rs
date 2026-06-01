@@ -49,8 +49,8 @@ pub(crate) fn is_header_value(b: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::any::type_name;
     use super::*;
+    use std::any::type_name;
     fn type_of<T>(_: T) -> &'static str {
         type_name::<T>()
     }
