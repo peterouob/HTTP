@@ -257,29 +257,3 @@ pub enum Status<T> {
     Partial,
     Complete(T),
 }
-
-impl<T> Status<T> {
-    #[inline]
-    pub fn is_complete(&self) -> bool {
-        match *self {
-            Status::Complete(..) => true,
-            Status::Partial => false,
-        }
-    }
-
-    #[inline]
-    pub fn is_partial(&self) -> bool {
-        match *self {
-            Status::Partial => true,
-            Status::Complete(..) => false,
-        }
-    }
-
-    #[inline]
-    pub fn unwrap(self) -> T {
-        match self {
-            Status::Complete(t) => t,
-            Status::Partial => panic!("Tried to unwrap Status::Partial"),
-        }
-    }
-}

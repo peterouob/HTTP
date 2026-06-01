@@ -1,5 +1,4 @@
 use crate::error::TCPSocketError;
-use crate::parse::iter::ParseBuffer;
 use crate::parse::parser::Status::Complete;
 use crate::parse::parser::{HeaderMap, Request, Status};
 use crate::{Connection, Shutdown};
