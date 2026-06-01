@@ -96,7 +96,7 @@ pub fn parse_header_iter<'a>(
     headers: &mut HeaderMap<'a>,
 ) -> ParseResult<usize> {
     let start = bytes.as_ref().as_ptr() as usize;
-    let mut result = Err(ParseError::TooManyHeaders);
+    let result;
 
     loop {
         let b = next!(bytes);

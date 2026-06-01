@@ -1,9 +1,9 @@
-use crate::{expect,next};
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
 use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
 use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
+use crate::{expect, next};
 
 #[inline]
 pub(crate) fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
@@ -141,6 +141,7 @@ pub(crate) fn parse_version(bytes: &mut ParseBuffer) -> ParseResult<u8> {
     Ok(Status::Partial)
 }
 
+// TODO: need to distinguish query string and path
 #[inline]
 pub(crate) fn parse_uri<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str> {
     let start = bytes.cursor;
@@ -217,9 +218,11 @@ pub fn match_header_value(bytes: &mut ParseBuffer) {
             }
         }
 
-        if let Some(byte) = bytes.peek() && is_header_value(byte){
-                bytes.advance(1);
-                continue;
+        if let Some(byte) = bytes.peek()
+            && is_header_value(byte)
+        {
+            bytes.advance(1);
+            continue;
         }
 
         break;

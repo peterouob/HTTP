@@ -1,5 +1,5 @@
-use crate::parse::parser::*;
 use crate::parse::error::*;
+use crate::parse::parser::*;
 #[test]
 fn test_simple_200_ok() {
     let mut headers = HeaderMap::new();
