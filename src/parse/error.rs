@@ -11,6 +11,7 @@ pub enum ParseError {
     TooManyHeaders,
     Version,
     Reason,
+    ReasonInvalidCode,
 }
 
 pub(crate) type ParseResult<T> = Result<Status<T>, ParseError>;
@@ -27,6 +28,7 @@ impl ParseError {
             ParseError::TooManyHeaders => "too many headers",
             ParseError::Version => "invalid HTTP version",
             ParseError::Reason => "invalid reason",
+            ParseError::ReasonInvalidCode => "invalid reason code",
         }
     }
 }

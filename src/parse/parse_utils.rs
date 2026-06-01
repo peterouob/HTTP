@@ -1,10 +1,9 @@
-use crate::expect;
+use crate::{expect,next};
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
 use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
 use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
-use crate::{complete, next};
 
 #[inline]
 pub(crate) fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
@@ -48,7 +47,7 @@ fn skip_space_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
 pub(crate) fn parse_status_code(bytes: &mut ParseBuffer<'_>) -> Result<Status<u16>, ParseError> {
     let hundreds = expect!(bytes.peek() == b'0'..=b'9' => Err(ParseError::StatusCode));
     let ten = expect!(bytes.peek() == b'0'..=b'9' => Err(ParseError::StatusCode));
-    let one = expect!(bytes.peek() == b'1'..=b'9' => Err(ParseError::StatusCode));
+    let one = expect!(bytes.peek() == b'0'..=b'9' => Err(ParseError::StatusCode));
 
     Ok(Complete(
         (hundreds - b'0') as u16 * 100 + (ten - b'0') as u16 * 10 + (one - b'0') as u16,
@@ -69,8 +68,8 @@ pub(crate) fn parse_reason<'a>(bytes: &mut ParseBuffer<'a>) -> Result<Status<&'a
             let bytes = bytes.sub_slice(1).unwrap();
             let slice = str::from_utf8(bytes).unwrap();
             return Ok(Complete(slice));
-        } else if !(b == 0x90 || b == b' ' || (0x21..=0x7E).contains(&b) || b >= 0x80) {
-            return Err(ParseError::StatusCode);
+        } else if !(b == 0x09 || b == b' ' || (0x21..=0x7E).contains(&b) || b >= 0x80) {
+            return Err(ParseError::ReasonInvalidCode);
         }
     }
 }
@@ -218,11 +217,9 @@ pub fn match_header_value(bytes: &mut ParseBuffer) {
             }
         }
 
-        if let Some(byte) = bytes.peek() {
-            if is_header_value(byte) {
+        if let Some(byte) = bytes.peek() && is_header_value(byte){
                 bytes.advance(1);
                 continue;
-            }
         }
 
         break;
