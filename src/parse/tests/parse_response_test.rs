@@ -144,7 +144,7 @@ fn test_error_status_code_too_short() {
     let mut headers = HeaderMap::new();
     let mut resp = Response::new(&mut headers);
     let result = resp.parse_header(b"HTTP/1.1 20 OK\r\n\r\n");
-    assert!(matches!(result, Err(_)));
+    assert!(matches!(result.is_err(), true));
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn test_error_status_code_too_long() {
     let mut headers = HeaderMap::new();
     let mut resp = Response::new(&mut headers);
     let result = resp.parse_header(b"HTTP/1.1 2000 OK\r\n\r\n");
-    assert!(matches!(result, Err(_)));
+    assert!(matches!(result.is_err(), true));
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_error_non_digit_status_code() {
     let mut headers = HeaderMap::new();
     let mut resp = Response::new(&mut headers);
     let result = resp.parse_header(b"HTTP/1.1 2X0 OK\r\n\r\n");
-    assert!(matches!(result, Err(_)));
+    assert!(matches!(result.is_err(), true));
 }
 
 #[test]
