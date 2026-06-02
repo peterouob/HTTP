@@ -4,6 +4,7 @@ use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
 use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
 use crate::{expect, next};
+use std::collections::HashMap;
 
 #[inline]
 pub(crate) fn skip_empty_line(bytes: &mut ParseBuffer) -> ParseResult<()> {
@@ -143,7 +144,10 @@ pub(crate) fn parse_version(bytes: &mut ParseBuffer) -> ParseResult<u8> {
 
 // TODO: need to distinguish query string and path
 #[inline]
-pub(crate) fn parse_uri<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str> {
+pub(crate) fn parse_uri<'a>(
+    bytes: &mut ParseBuffer<'a>,
+    query_mp: &mut HashMap<&'a str, Vec<&'a str>>,
+) -> ParseResult<&'a str> {
     let start = bytes.cursor;
     match_uri_token(bytes);
     let end = bytes.cursor;
@@ -158,7 +162,7 @@ pub(crate) fn parse_uri<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str>
             _ => return Err(ParseError::Token),
         };
 
-        split_query_string(slice);
+        split_query_string(slice, query_mp);
 
         match str::from_utf8(slice) {
             Ok(uri) => Ok(Complete(uri)),
@@ -193,15 +197,15 @@ pub(crate) fn match_uri_token(b: &mut ParseBuffer) {
 }
 
 #[inline]
-fn split_query_string(b8: &[u8]) {
+fn split_query_string<'a>(b8: &'a [u8], mp: &mut HashMap<&'a str, Vec<&'a str>>) {
     // url: https://example.com/api/users?id=100&group=admin
     // path: https://example.com/api/users
     // query: id=100&group=admin
 
     let mut bytes = ParseBuffer::new(b8);
-    match  check_have_query_string(&mut bytes) {
+    match check_have_query_string(&mut bytes) {
         Some(pos) => {
-            bytes.move_cursor(pos+1);
+            bytes.move_cursor(pos + 1);
             bytes.commit();
             bytes.to_the_tail();
 
@@ -211,14 +215,18 @@ fn split_query_string(b8: &[u8]) {
                     continue;
                 }
 
-                let (key,val) = match pair.iter().position(|&b| b == b'=') {
+                let (key, val) = match pair.iter().position(|&b| b == b'=') {
                     Some(pos) => (&pair[..pos], &pair[pos + 1..]),
                     None => (pair, &[][..]),
                 };
 
-                println!("{:?},{:?}", str::from_utf8(key).unwrap(), str::from_utf8(val).unwrap());
+                //TODO: avoid  unwrap  in feature
+                let k = str::from_utf8(key).unwrap();
+                let v = str::from_utf8(val).unwrap();
+
+                mp.entry(k).or_insert_with(Vec::new).push(v);
             }
-        },
+        }
         None => {
             return;
         }
@@ -227,33 +235,40 @@ fn split_query_string(b8: &[u8]) {
 
 #[cfg(target_endian = "little")]
 #[inline]
-fn check_have_query_string(bytes: &mut ParseBuffer) -> Option<usize>{
+fn check_have_query_string(bytes: &mut ParseBuffer) -> Option<usize> {
     let question_mark = 0x3f3f3f3f3f3f3f3f;
     let low_bits = 0x0101010101010101;
     let high_bits = 0x8080808080808080;
 
-    loop {
-        if bytes.len_remain() < BLOCK_SIZE {
-            return match bytes.buf.iter().position(|&b| b == b'?') {
-                pos => pos,
+    if bytes.buf.len() > BLOCK_SIZE {
+        loop {
+            match bytes.peek_after_cursor::<BLOCK_SIZE>() {
+                Some(b8) => {
+                    let block = u64::from_ne_bytes(b8);
+                    let x = block ^ question_mark;
+                    let bits = (x.wrapping_sub(low_bits)) & !x & high_bits;
+
+                    if bits != 0 {
+                        let trailing_zeros = bits.trailing_zeros() as usize;
+                        let offset = trailing_zeros >> 3;
+
+                        return Some(bytes.cursor + offset);
+                    };
+                    bytes.advance(BLOCK_SIZE);
+                }
+                None => {
+                    return match bytes.buf.iter().position(|&b| b == b'?') {
+                        pos => pos,
+                    };
+                }
             }
         }
-
-        let b8 = bytes.peek_after_cursor::<BLOCK_SIZE>().unwrap_or_else(|| unreachable!());
-        let block = u64::from_ne_bytes(b8);
-        let x = block ^ question_mark;
-        let bits = (x.wrapping_sub(low_bits)) & !x & high_bits;
-
-        if bits != 0 {
-            let trailing_zeros = bits.trailing_zeros() as usize;
-            let offset = trailing_zeros >> 3;
-
-            return Some(bytes.cursor + offset);
-        };
-        bytes.advance(BLOCK_SIZE);
+    } else {
+        match bytes.buf.iter().position(|&b| b == b'?') {
+            pos => pos,
+        }
     }
 }
-
 
 const BLOCK_SIZE: usize = size_of::<usize>();
 type Block = [u8; BLOCK_SIZE];

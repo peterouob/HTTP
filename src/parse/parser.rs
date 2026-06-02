@@ -51,6 +51,7 @@ pub struct Request<'h, 'b> {
     pub path: Option<&'b str>,
     pub version: Option<u8>,
     pub headers: &'h mut HeaderMap<'b>,
+    pub query_map: HashMap<&'b str, Vec<&'b str>>,
 }
 
 impl<'h, 'b> fmt::Display for Request<'h, 'b> {
@@ -73,6 +74,7 @@ impl<'h, 'b> Request<'h, 'b> {
             path: None,
             version: None,
             headers,
+            query_map: HashMap::new(),
         }
     }
 
@@ -81,7 +83,7 @@ impl<'h, 'b> Request<'h, 'b> {
         complete!(skip_empty_line(&mut bytes));
         let method = complete!(parse_method(&mut bytes));
         self.method = Some(method);
-        self.path = Some(complete!(parse_uri(&mut bytes)));
+        self.path = Some(complete!(parse_uri(&mut bytes, &mut self.query_map)));
         self.version = Some(complete!(parse_version(&mut bytes)));
 
         newline!(bytes);

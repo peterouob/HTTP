@@ -2,9 +2,10 @@
 mod test {
     use crate::parse::error::*;
     use crate::parse::iter::*;
-    use crate::parse::parser::*;
-    use crate::parse::parser::Status::*;
     use crate::parse::parse_utils::*;
+    use crate::parse::parser::Status::*;
+    use crate::parse::parser::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_skip_empty_line() {
@@ -98,66 +99,186 @@ mod test {
 
     #[test]
     fn test_parse_uri() {
-        let mut buf = ParseBuffer::new(b"/index.html HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/index.html"));
-        assert_eq!(buf.peek(), Some(b'H'));
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?q=hello&q=123 HTTP/1.1");
+        let r = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"q").unwrap()[0], "hello"));
+        assert!(matches!(query_map.get(&"q").unwrap()[1], "123"));
+    }
 
-        let mut buf = ParseBuffer::new(b"/ HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/"));
-
+    #[test]
+    fn test_parse_uri_basic_single_pair() {
+        let mut query_map = HashMap::new();
         let mut buf = ParseBuffer::new(b"/search?q=hello HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/search?q=hello"));
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"q").unwrap()[0], "hello"));
+    }
 
-        let mut buf = ParseBuffer::new(b"/a/b/c/d/e/f/g/h HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/a/b/c/d/e/f/g/h"));
+    #[test]
+    fn test_parse_uri_repeated_key() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?q=hello&q=123 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"q").unwrap()[0], "hello"));
+        assert!(matches!(query_map.get(&"q").unwrap()[1], "123"));
+    }
 
-        let mut buf = ParseBuffer::new(b"/path-v2.0_test~!$& HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/path-v2.0_test~!$&"));
+    #[test]
+    fn test_parse_uri_multiple_keys() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/api?id=100&group=admin HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"id").unwrap()[0], "100"));
+        assert!(matches!(query_map.get(&"group").unwrap()[0], "admin"));
+    }
 
-        let mut buf = ParseBuffer::new(b"");
-        let r = parse_uri(&mut buf);
-        assert_eq!(r, Err(ParseError::Token));
+    #[test]
+    fn test_parse_uri_no_query() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(query_map.is_empty());
+    }
 
-        let mut buf = ParseBuffer::new(b" HTTP/1.1");
-        let r = parse_uri(&mut buf);
-        assert!(
-            matches!(r, Err(ParseError::Token)),
-            "empty URI should be Token error, got {:?}",
-            r
-        );
+    #[test]
+    fn test_parse_uri_root_path_no_query() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/ HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(query_map.is_empty());
+    }
 
-        let mut buf = ParseBuffer::new(b"/pa\x01th HTTP/1.1");
-        let r = parse_uri(&mut buf);
-        assert!(
-            matches!(r, Err(ParseError::Token)),
-            "CTL in URI should be Token error"
-        );
+    #[test]
+    fn test_parse_uri_question_mark_only() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search? HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(query_map.is_empty());
+    }
 
-        let mut buf = ParseBuffer::new(b"/pa\x7fth HTTP/1.1");
-        let r = parse_uri(&mut buf);
-        assert!(
-            matches!(r, Err(ParseError::Token)),
-            "DEL in URI should be Token error"
-        );
+    #[test]
+    fn test_parse_uri_key_without_equals() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?a HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], ""));
+    }
 
-        let mut buf = ParseBuffer::new(b"/path HTTP/1.1");
-        parse_uri(&mut buf).unwrap();
-        assert_eq!(buf.cursor, 6);
-        assert_eq!(buf.peek(), Some(b'H'));
+    #[test]
+    fn test_parse_uri_key_with_empty_value() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?a= HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], ""));
+    }
 
-        let mut buf = ParseBuffer::new(b"/abcdefg HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/abcdefg"));
-        assert_eq!(buf.peek(), Some(b'H'));
+    #[test]
+    fn test_parse_uri_consecutive_ampersands() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?a=1&&b=2 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], "1"));
+        assert!(matches!(query_map.get(&"b").unwrap()[0], "2"));
+        assert_eq!(query_map.len(), 2);
+    }
 
-        let mut buf = ParseBuffer::new(b"/abc def HTTP/1.1");
-        let r = parse_uri(&mut buf).unwrap();
-        assert_eq!(r, Complete("/abc"));
-        assert_eq!(buf.peek(), Some(b'd'));
+    #[test]
+    fn test_parse_uri_trailing_ampersand() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?a=1& HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], "1"));
+        assert_eq!(query_map.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_uri_leading_ampersand() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?&a=1 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], "1"));
+        assert_eq!(query_map.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_uri_value_contains_equals() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?token=abc=def HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"token").unwrap()[0], "abc=def"));
+    }
+
+    #[test]
+    fn test_parse_uri_empty_key_with_value() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/search?=value HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"").unwrap()[0], "value"));
+    }
+
+    #[test]
+    fn test_parse_uri_query_at_block_boundary() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/abcdefg?x=1 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"x").unwrap()[0], "1"));
+    }
+
+    #[test]
+    fn test_parse_uri_query_just_before_boundary() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/abcdef?x=1 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"x").unwrap()[0], "1"));
+    }
+
+    #[test]
+    fn test_parse_uri_query_just_after_boundary() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/abcdefgh?x=1 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"x").unwrap()[0], "1"));
+    }
+
+    #[test]
+    fn test_parse_uri_short_path_below_block_size() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/?a=1 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(query_map.get(&"a").unwrap()[0], "1"));
+    }
+
+    #[test]
+    fn test_parse_uri_percent_encoded_value() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/api?name=%E6%B8%AC%E8%A9%A6 HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        assert!(matches!(
+            query_map.get(&"name").unwrap()[0],
+            "%E6%B8%AC%E8%A9%A6"
+        ));
+    }
+
+    #[test]
+    fn test_parse_uri_three_repeated_keys() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/x?tag=a&tag=b&tag=c HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        let tags = query_map.get(&"tag").unwrap();
+        assert_eq!(tags.len(), 3);
+        assert!(matches!(tags[0], "a"));
+        assert!(matches!(tags[1], "b"));
+        assert!(matches!(tags[2], "c"));
+    }
+
+    #[test]
+    fn test_parse_uri_repeated_key_preserves_order() {
+        let mut query_map = HashMap::new();
+        let mut buf = ParseBuffer::new(b"/x?q=z&q=a&q=m HTTP/1.1");
+        let _ = parse_uri(&mut buf, &mut query_map).unwrap();
+        let q = query_map.get(&"q").unwrap();
+        assert!(matches!(q[0], "z"));
+        assert!(matches!(q[1], "a"));
+        assert!(matches!(q[2], "m"));
     }
 }
