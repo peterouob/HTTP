@@ -35,6 +35,12 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
+    pub fn move_cursor(&mut self, n: usize) {
+        debug_assert!(n <= self.buf.len());
+        self.cursor = n;
+    }
+
+    #[inline]
     pub fn peek_after_cursor<const N: usize>(&self) -> Option<[u8; N]> {
         let n = self.cursor.checked_add(N)?;
         self.buf.get(self.cursor..n)?.try_into().ok()
@@ -71,6 +77,12 @@ impl<'a> ParseBuffer<'a> {
         let s = self.buf.get(self.start..self.cursor)?;
         self.start = self.cursor;
         Some(s)
+    }
+
+    #[inline]
+    pub fn to_the_tail(&mut self) {
+        let s = self.buf.get(self.cursor..);
+        self.cursor = self.buf.len();
     }
 
     #[inline]
