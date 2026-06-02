@@ -6,7 +6,12 @@
 
 - [x] TCP Foundation & Concurrency
 - [x] HTTP/1.1 Parser
-- [ ] Response & Routing
+  - [ ] Serialize & Deserialize
+- [ ] Response
+- [ ] Routing
+    - [ ] radix tree
+      - [x] insert
+      - [ ] finding
 - [ ] Connection Management
 
 ---
