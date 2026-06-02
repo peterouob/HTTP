@@ -10,23 +10,6 @@ use crate::{next, space};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Formatter, write};
-/*
- *  ----------------------------
- *  start line
- *  ----------------------------
- *  [method] [path] [Protocol version]
- *  GET        /    HTTP/1.1
- *  ----------------------------
- *  header [field name]: [field value]
- *  ----------------------------
- *  Host: www.google.com
- *  Accept: text/html
- *  ----------------------------
- *  CRLF
- *  ----------------------------
- *  body
- *  ----------------------------
- * */
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct HeaderMap<'buf> {
@@ -48,10 +31,9 @@ impl<'buf> HeaderMap<'buf> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct Request<'h, 'b> {
     pub method: Option<&'b str>,
-    pub path: Option<&'b str>,
+    pub uri: Option<&'b str>,
     pub version: Option<u8>,
     pub headers: &'h mut HeaderMap<'b>,
-    pub query_map: HashMap<&'b str, Vec<&'b str>>,
 }
 
 impl<'h, 'b> fmt::Display for Request<'h, 'b> {
@@ -59,8 +41,8 @@ impl<'h, 'b> fmt::Display for Request<'h, 'b> {
         write(
             f,
             format_args!(
-                "method:{:?}, path:{:?}, version:{:?}, headers:{:?}",
-                self.method, self.path, self.version, self.headers
+                "method:{:?}, uri:{:?}, version:{:?}, headers:{:?}",
+                self.method, self.uri, self.version, self.headers
             ),
         )
     }
@@ -71,10 +53,9 @@ impl<'h, 'b> Request<'h, 'b> {
     pub fn new(headers: &'h mut HeaderMap<'b>) -> Request<'h, 'b> {
         Request {
             method: None,
-            path: None,
+            uri: None,
             version: None,
             headers,
-            query_map: HashMap::new(),
         }
     }
 
@@ -83,7 +64,7 @@ impl<'h, 'b> Request<'h, 'b> {
         complete!(skip_empty_line(&mut bytes));
         let method = complete!(parse_method(&mut bytes));
         self.method = Some(method);
-        self.path = Some(complete!(parse_uri(&mut bytes, &mut self.query_map)));
+        self.uri = Some(complete!(parse_uri(&mut bytes)));
         self.version = Some(complete!(parse_version(&mut bytes)));
 
         newline!(bytes);

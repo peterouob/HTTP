@@ -13,7 +13,7 @@ fn test_get_with_common_headers() {
     let result = req.parse_header(input.as_bytes());
     assert_eq!(result, Ok(Status::Complete(())));
     assert_eq!(req.method, Some("GET"));
-    assert_eq!(req.path, Some("/index.html"));
+    assert_eq!(req.uri, Some("/index.html"));
     assert_eq!(req.version, Some(1));
     assert_eq!(
         req.headers.header.get("Host"),
@@ -45,7 +45,7 @@ fn test_post_with_content_headers() {
     let result = req.parse_header(input.as_bytes());
     assert_eq!(result, Ok(Status::Complete(())));
     assert_eq!(req.method, Some("POST"));
-    assert_eq!(req.path, Some("/submit"));
+    assert_eq!(req.uri, Some("/submit"));
     assert_eq!(
         req.headers.header.get("Content-Type"),
         Some(&b"application/json"[..].as_ref())

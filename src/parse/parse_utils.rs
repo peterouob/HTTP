@@ -1,7 +1,7 @@
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
-use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
+use crate::parse::parser::{Status};
 use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
 use crate::{expect, next};
 use std::collections::HashMap;
@@ -142,12 +142,8 @@ pub(crate) fn parse_version(bytes: &mut ParseBuffer) -> ParseResult<u8> {
     Ok(Status::Partial)
 }
 
-// TODO: need to distinguish query string and path
 #[inline]
-pub(crate) fn parse_uri<'a>(
-    bytes: &mut ParseBuffer<'a>,
-    query_mp: &mut HashMap<&'a str, Vec<&'a str>>,
-) -> ParseResult<&'a str> {
+pub(crate) fn parse_uri<'a>(bytes: &mut ParseBuffer<'a>) -> ParseResult<&'a str> {
     let start = bytes.cursor;
     match_uri_token(bytes);
     let end = bytes.cursor;
@@ -162,14 +158,94 @@ pub(crate) fn parse_uri<'a>(
             _ => return Err(ParseError::Token),
         };
 
-        split_query_string(slice, query_mp);
-
         match str::from_utf8(slice) {
             Ok(uri) => Ok(Complete(uri)),
             Err(_) => Err(ParseError::Token),
         }
     } else {
         Err(ParseError::Token)
+    }
+}
+
+pub struct Uri<'a> {
+    raw: ParseBuffer<'a>,
+    pub path: Option<&'a [u8]>,
+    pub query: Option<&'a [u8]>,
+    pub query_map: HashMap<&'a str, Vec<&'a str>>,
+}
+
+impl<'a> Uri<'a> {
+    #[inline]
+    pub fn new(u8_raw: &'a [u8]) -> Self {
+        Uri {
+            raw: ParseBuffer::new(u8_raw),
+            path: None,
+            query: None,
+            query_map: HashMap::new(),
+        }
+    }
+
+    #[inline]
+    pub fn split(&mut self) {
+        loop {
+            if let Some(b8) = self.raw.peek_after_cursor::<BLOCK_SIZE>() {
+                let n = get_question_mark_pos_swar(b8);
+
+                self.raw.advance(n);
+
+                if n == BLOCK_SIZE {
+                    continue;
+                }
+            };
+            match self.raw.peek() {
+                Some(0x3F) => {
+                    self.path = self.raw.slice();
+                    self.raw.advance(1);
+                    self.raw.commit();
+                    self.raw.to_the_tail();
+                    self.query = self.raw.slice();
+                    break;
+                }
+                Some(_) => {
+                    self.raw.advance(1);
+                    continue;
+                }
+                None => {
+                    self.raw.to_the_tail();
+                    self.path = self.raw.slice();
+                    self.query = None;
+                }
+            }
+
+            break;
+        }
+    }
+
+    #[inline]
+    pub fn split_query_string(&mut self) {
+        // url: https://example.com/api/users?id=100&group=admin
+        // uri: https://example.com/api/users
+        // query: id=100&group=admin
+
+        let Some(query) = self.query else {
+            return;
+        };
+
+        for pair in query.split(|&b| b == b'&') {
+            if pair.is_empty() {
+                continue;
+            }
+
+            let (key, val) = match pair.iter().position(|&b| b == b'=') {
+                Some(pos) => (&pair[..pos], &pair[pos + 1..]),
+                None => (pair, &[][..]),
+            };
+
+            let k = str::from_utf8(key).unwrap_or_default();
+            let v = str::from_utf8(val).unwrap_or_default();
+
+            self.query_map.entry(k).or_default().push(v);
+        }
     }
 }
 
@@ -196,78 +272,27 @@ pub(crate) fn match_uri_token(b: &mut ParseBuffer) {
     }
 }
 
-#[inline]
-fn split_query_string<'a>(b8: &'a [u8], mp: &mut HashMap<&'a str, Vec<&'a str>>) {
-    // url: https://example.com/api/users?id=100&group=admin
-    // path: https://example.com/api/users
-    // query: id=100&group=admin
-
-    let mut bytes = ParseBuffer::new(b8);
-    match check_have_query_string(&mut bytes) {
-        Some(pos) => {
-            bytes.move_cursor(pos + 1);
-            bytes.commit();
-            bytes.to_the_tail();
-
-            let slice = bytes.slice().unwrap();
-            for pair in slice.split(|&b| b == b'&') {
-                if pair.is_empty() {
-                    continue;
-                }
-
-                let (key, val) = match pair.iter().position(|&b| b == b'=') {
-                    Some(pos) => (&pair[..pos], &pair[pos + 1..]),
-                    None => (pair, &[][..]),
-                };
-
-                //TODO: avoid  unwrap  in feature
-                let k = str::from_utf8(key).unwrap();
-                let v = str::from_utf8(val).unwrap();
-
-                mp.entry(k).or_insert_with(Vec::new).push(v);
-            }
-        }
-        None => {
-            return;
-        }
-    }
-}
-
 #[cfg(target_endian = "little")]
 #[inline]
-fn check_have_query_string(bytes: &mut ParseBuffer) -> Option<usize> {
-    let question_mark = 0x3f3f3f3f3f3f3f3f;
-    let low_bits = 0x0101010101010101;
-    let high_bits = 0x8080808080808080;
+fn get_question_mark_pos_swar(bytes: Block) -> usize {
+    let question_mark = uniform_block(0x3F);
+    let low_bits = uniform_block(0x01);
+    let high_bits = uniform_block(0x80);
 
-    if bytes.buf.len() > BLOCK_SIZE {
-        loop {
-            match bytes.peek_after_cursor::<BLOCK_SIZE>() {
-                Some(b8) => {
-                    let block = u64::from_ne_bytes(b8);
-                    let x = block ^ question_mark;
-                    let bits = (x.wrapping_sub(low_bits)) & !x & high_bits;
+    let b = usize::from_ne_bytes(bytes);
 
-                    if bits != 0 {
-                        let trailing_zeros = bits.trailing_zeros() as usize;
-                        let offset = trailing_zeros >> 3;
+    let b_xor = b ^ question_mark;
+    let eq_question = b_xor.wrapping_sub(low_bits) & !b_xor & high_bits;
 
-                        return Some(bytes.cursor + offset);
-                    };
-                    bytes.advance(BLOCK_SIZE);
-                }
-                None => {
-                    return match bytes.buf.iter().position(|&b| b == b'?') {
-                        pos => pos,
-                    };
-                }
-            }
-        }
-    } else {
-        match bytes.buf.iter().position(|&b| b == b'?') {
-            pos => pos,
-        }
+    if eq_question == 0 {
+        return BLOCK_SIZE;
     }
+
+    (eq_question.trailing_zeros() >> 3) as usize
+}
+
+const fn uniform_block(b: u8) -> usize {
+    u64::from_ne_bytes([b; 8]) as usize
 }
 
 const BLOCK_SIZE: usize = size_of::<usize>();
