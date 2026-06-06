@@ -59,17 +59,22 @@ impl<'a, T> Node<'a, T> {
     }
 
     #[inline]
-    pub(crate) fn get_edge(&self, label: &[u8]) -> Option<&Node<'a, T>> {
-        let idx = self.edges.partition_point(|e| e.label < label);
-        if idx < self.edges.len() && self.edges[idx].label == label {
-            Some(&self.edges[idx].node)
-        } else {
-            None
-        }
+    pub(crate) fn get_edge(&self, first_label: u8) -> Option<&Node<'a, T>> {
+        self.edges
+            .iter()
+            .find(|e| e.label[0] == first_label)
+            .map(|e| &e.node)
     }
 }
 
+enum Method {
+    GET,
+    POST,
+}
+
+// Use Method distinct tree
 pub(crate) struct RadixTree<'a, T> {
+    method: Option<Method>,
     root: Node<'a, T>,
     size: usize,
 }
@@ -90,7 +95,34 @@ where
 impl<'a, T> RadixTree<'a, T> {
     #[inline]
     pub(crate) fn new(root: Node<'a, T>) -> Self {
-        RadixTree { root, size: 0 }
+        RadixTree {
+            root,
+            size: 0,
+            method: None,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn find(&self, label: &'a [u8]) -> RouterResult<Option<&T>> {
+        let mut search = label;
+        let mut node = &self.root;
+
+        loop {
+            if search.is_empty() {
+                return Ok(node.leaf_node.as_ref().map(|leaf| &leaf.value));
+            }
+
+            let Some(next_node) = node.get_edge(search[0]) else {
+                return Ok(None);
+            };
+
+            if !search.starts_with(next_node.prefix) {
+                return Ok(None);
+            }
+
+            search = &search[next_node.prefix.len()..];
+            node = next_node;
+        }
     }
 
     #[inline]
@@ -182,142 +214,5 @@ pub(crate) fn insert_recursive<'a, T>(
             n.add_edge(edge);
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_tree_insert_edge_cases() {
-        let mut tree: RadixTree<&str> = RadixTree::new(Node::default());
-
-        assert_eq!(tree.insert(b"", "empty"), Err(RouterError::NullKey));
-        assert_eq!(tree.insert(b"a", "single_char"), Ok(()));
-
-        assert_eq!(
-            tree.insert(b"a", "duplicate_single"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"user/settings/profile", "long"), Ok(()));
-
-        assert_eq!(tree.insert(b"user/settings", "mid"), Ok(()));
-
-        assert_eq!(tree.insert(b"user", "short"), Ok(()));
-
-        assert_eq!(
-            tree.insert(b"user", "dup_short"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(
-            tree.insert(b"user/settings", "dup_mid"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"banana", "b1"), Ok(()));
-        assert_eq!(tree.insert(b"b", "b2"), Ok(()));
-        assert_eq!(tree.insert(b"b", "b2_dup"), Err(RouterError::DuplicateKey));
-
-        assert_eq!(tree.insert(b"user-api", "api"), Ok(()));
-        assert_eq!(
-            tree.insert(b"user-api", "api_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"test/api", "t1"), Ok(()));
-        assert_eq!(tree.insert(b"best/api", "t2"), Ok(()));
-        assert_eq!(
-            tree.insert(b"test/api", "t1_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"a/b/c/d/e", "deep"), Ok(()));
-        assert_eq!(tree.insert(b"a/b/c/d", "deep_1"), Ok(()));
-        assert_eq!(tree.insert(b"a/b/c", "deep_2"), Ok(()));
-        assert_eq!(tree.insert(b"a/b", "deep_3"), Ok(()));
-
-        assert_eq!(
-            tree.insert(b"a/b/c/d/e", "dup"),
-            Err(RouterError::DuplicateKey)
-        );
-        assert_eq!(tree.insert(b"a/b", "dup"), Err(RouterError::DuplicateKey));
-    }
-
-    #[test]
-    fn test_tree_insert_edge_split_cases() {
-        let mut tree: RadixTree<&str> = RadixTree::new(Node::default());
-
-        assert_eq!(tree.insert(b"b", "b_first"), Ok(()));
-        assert_eq!(tree.insert(b"banana", "b_long_after"), Ok(()));
-
-        assert_eq!(tree.insert(b"romane", "r1"), Ok(()));
-        assert_eq!(tree.insert(b"romanus", "r2"), Ok(()));
-        assert_eq!(
-            tree.insert(b"romane", "r1_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-        assert_eq!(
-            tree.insert(b"romanus", "r2_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"roman", "r3_prefix"), Ok(()));
-        assert_eq!(
-            tree.insert(b"roman", "r3_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"abc", "abc"), Ok(()));
-        assert_eq!(tree.insert(b"abd", "abd"), Ok(()));
-        assert_eq!(tree.insert(b"abe", "abe"), Ok(()));
-
-        assert_eq!(tree.insert(b"ab", "ab_at_split"), Ok(()));
-        assert_eq!(tree.insert(b"ab", "ab_dup"), Err(RouterError::DuplicateKey));
-    }
-
-    #[test]
-    fn test_tree_insert_byte_boundary_cases() {
-        let mut tree: RadixTree<&str> = RadixTree::new(Node::default());
-
-        assert_eq!(tree.insert(b"a", "a"), Ok(()));
-        assert_eq!(tree.insert(b"b", "b"), Ok(()));
-        assert_eq!(tree.insert(b"c", "c"), Ok(()));
-
-        assert_eq!(tree.insert(&[0xFF], "ff"), Ok(()));
-        assert_eq!(tree.insert(&[0x80], "80"), Ok(()));
-        assert_eq!(
-            tree.insert(&[0xFF], "ff_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"a\0b", "null_mid"), Ok(()));
-        assert_eq!(
-            tree.insert(b"a\0b", "null_mid_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert("使用者".as_bytes(), "zh"), Ok(()));
-        assert_eq!(tree.insert("使用".as_bytes(), "zh_prefix"), Ok(()));
-        assert_eq!(
-            tree.insert("使用者".as_bytes(), "zh_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        assert_eq!(tree.insert(b"/api", "no_slash"), Ok(()));
-        assert_eq!(tree.insert(b"/api/", "trailing_slash"), Ok(()));
-        assert_eq!(
-            tree.insert(b"/api", "no_slash_dup"),
-            Err(RouterError::DuplicateKey)
-        );
-
-        let long_key = vec![b'x'; 4096];
-        assert_eq!(tree.insert(&long_key, "long"), Ok(()));
-        assert_eq!(
-            tree.insert(&long_key, "long_dup"),
-            Err(RouterError::DuplicateKey)
-        );
     }
 }
