@@ -1,6 +1,6 @@
 use crate::error::TCPSocketError;
 use crate::parse::parser::Status::Complete;
-use crate::parse::parser::{HeaderMap, Request, Status};
+use crate::parse::parser::{HeaderMap, Request, Response, Status};
 use crate::{Connection, Shutdown};
 use anyhow::{Result, anyhow};
 use rand::RngExt;
@@ -9,6 +9,7 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use bytes::BytesMut;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -71,6 +72,9 @@ pub async fn run(addr: SocketAddr, shutdown: impl Future) {
 }
 
 impl Listener {
+    // TODO: use FSM mange the state of server, now is the very simple example to show the req/res can work well
+    // SO NOW the represent page is from claud and when the router done then i will fix here
+    // i want to use router like the golang package which name is "gin" so i need some time to learning
     async fn run(&mut self) -> Result<()> {
         info!("accepting inbound connections");
         loop {
@@ -174,20 +178,79 @@ impl Handle {
 
             let result = req.parse_header(frame.as_ref());
 
-            match result {
+            let response_bytes = match result {
                 Ok(Complete(())) => {
-                    println!("complete result: {:?}", result);
+                    build_hello_response(&req)
                 }
                 Ok(Status::Partial) => {
-                    println!("partial result: {:?}", result);
+                    build_400_response()
                 }
-                Err(err) => {
-                    println!("{}", err)
+                Err(_) => {
+                    build_400_response()
                 }
-            }
+            };
 
-            println!("req:{:?}", req);
-            // self.connection.write_frame(&frame).await?;
+            drop(req);
+            drop(headers);
+            self.connection.write_frame(&response_bytes).await?;
         }
     }
+}
+
+// HACK: THESE CODE IS GENERATE FROM AI SO WE NEED TO REWRITE LATER WHEN THE ROUTER WORK DONE
+fn build_hello_response(req: &Request) -> Vec<u8> {
+    let body = format!(
+        "<!DOCTYPE html>\n\
+         <html>\n\
+         <head><title>Hello</title></head>\n\
+         <body>\n\
+           <h1>Hello from Rust!</h1>\n\
+           <p>Method: {}</p>\n\
+           <p>Path: {}</p>\n\
+         </body>\n\
+         </html>\n",
+        req.method.unwrap_or("?"),
+        req.uri.unwrap_or("?"),
+    );
+    let body_bytes = body.into_bytes();
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", b"text/html; charset=utf-8");
+    let len = body_bytes.len().to_string();
+    headers.insert("Content-Length", len.as_bytes());
+    headers.insert("Connection", b"close");
+
+    let resp = Response {
+        version: Some(1),
+        status_code: Some(200),
+        reason: Some("OK"),
+        headers: &mut headers,
+    };
+
+    let mut out = BytesMut::with_capacity(512);
+    resp.write_to(&mut out);
+    out.extend_from_slice(&body_bytes);
+    out.to_vec()
+}
+
+fn build_400_response() -> Vec<u8> {
+    let body = b"<h1>400 Bad Request</h1>";
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", b"text/html");
+    let len = body.len().to_string();
+    headers.insert("Content-Length", len.as_bytes());
+    headers.insert("Connection", b"close");
+
+    let resp = Response {
+        version: Some(1),
+        status_code: Some(400),
+        reason: Some("Bad Request"),
+        headers: &mut headers,
+    };
+
+    let mut out = BytesMut::with_capacity(512);
+    resp.write_to(&mut out);
+    out.extend_from_slice(body);
+    out.to_vec()
 }
