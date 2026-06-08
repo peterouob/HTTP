@@ -29,6 +29,9 @@ jobs:
       - name: Check code formatting
         run: cargo fmt --check
 
+      - name: Cargo Rust Format
+        run: cargo fmt
+
       - name: Run the tests
         run: cargo test --all-features
 
