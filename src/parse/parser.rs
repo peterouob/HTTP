@@ -1,3 +1,5 @@
+use bytes::{BufMut, BytesMut};
+
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
 use crate::parse::parse_utils::{
@@ -232,6 +234,31 @@ impl<'h, 'b> Response<'h, 'b> {
 
         complete!(parse_header_iter(&mut bytes, self.headers));
         Ok(Status::Complete(()))
+    }
+
+    #[inline]
+    pub fn write_to(&self, buf: &mut BytesMut) {
+        buf.put_slice(b"HTTP/1.");       
+        buf.put_u8(self.version.unwrap_or(0));
+        buf.put_u8(b' ');
+
+        let code = self.status_code.unwrap_or(200);
+        buf.put_u8(b'0' + ((code / 100) as u8 % 10));
+        buf.put_u8(b'0' + ((code / 10) as u8 % 10));
+        buf.put_u8(b'0' + ((code % 10) as u8));
+        buf.put_u8(b' ');
+
+        buf.put_slice(self.reason.unwrap_or("OK").as_bytes());
+        buf.put_slice(b"\r\n");
+
+        for (name,value) in self.headers.header.iter() {
+            buf.put_slice(name.as_bytes());
+            buf.put_slice(b": ");
+            buf.put_slice(value);
+            buf.put_slice(b"\r\n");
+        }
+
+        buf.put_slice(b"\r\n");
     }
 }
 

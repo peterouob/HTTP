@@ -1,7 +1,7 @@
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
+use crate::parse::parser::Status;
 use crate::parse::parser::Status::Complete;
-use crate::parse::parser::{Status};
 use crate::parse::tchar::{is_header_name_token, is_header_value, is_method_token, is_url_token};
 use crate::{expect, next};
 use std::collections::HashMap;
@@ -289,6 +289,25 @@ fn get_question_mark_pos_swar(bytes: Block) -> usize {
     }
 
     (eq_question.trailing_zeros() >> 3) as usize
+}
+
+#[cfg(target_endian = "little")]
+#[inline]
+fn get_colon_pos(bytes: Block) -> usize {
+    let colon = uniform_block(0x3A);
+    let low_bits = uniform_block(0x01);
+    let high_bits = uniform_block(0x80);
+
+    let b = usize::from_ne_bytes(bytes);
+
+    let b_xor = b ^ colon;
+    let eq_colon = b_xor.wrapping_sub(low_bits) & !b_xor & high_bits;
+
+    if eq_colon == 0 {
+        return BLOCK_SIZE;
+    }
+
+    (eq_colon.trailing_zeros() >> 3) as usize
 }
 
 const fn uniform_block(b: u8) -> usize {

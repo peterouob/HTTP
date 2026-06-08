@@ -29,8 +29,8 @@ impl Connection {
         Ok(Some(data))
     }
 
-    pub async fn write_frame(&mut self, frame: &str) -> anyhow::Result<()> {
-        self.stream.write_all(frame.as_bytes()).await?;
+    pub async fn write_frame(&mut self, frame: &[u8]) -> anyhow::Result<()> {
+        self.stream.write_all(frame).await?;
         self.stream.flush().await?;
         Ok(())
     }
