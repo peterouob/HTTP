@@ -1,12 +1,12 @@
 use crate::router::error::RouterError;
 use crate::router::error::RouterResult;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{fmt, mem};
 
 #[derive(Debug)]
 pub(crate) struct LeafNode<'a, T> {
     key: &'a [u8],
-    // TODO: value will store the function which do the router thing when it access
     value: T,
 }
 
@@ -67,14 +67,8 @@ impl<'a, T> Node<'a, T> {
     }
 }
 
-enum Method {
-    GET,
-    POST,
-}
-
 // Use Method distinct tree
 pub(crate) struct RadixTree<'a, T> {
-    method: Option<Method>,
     root: Node<'a, T>,
     size: usize,
 }
@@ -95,29 +89,26 @@ where
 impl<'a, T> RadixTree<'a, T> {
     #[inline]
     pub(crate) fn new(root: Node<'a, T>) -> Self {
-        RadixTree {
-            root,
-            size: 0,
-            method: None,
-        }
+        RadixTree { root, size: 0 }
     }
 
     #[inline]
-    pub(crate) fn find(&self, label: &'a [u8]) -> RouterResult<Option<&T>> {
+    pub(crate) fn find(&self, label: &'a [u8]) -> Option<&T> {
         let mut search = label;
         let mut node = &self.root;
 
         loop {
             if search.is_empty() {
-                return Ok(node.leaf_node.as_ref().map(|leaf| &leaf.value));
+                let leaf = node.leaf_node.as_ref().map(|leaf| &leaf.value).unwrap();
+                return Some(leaf);
             }
 
             let Some(next_node) = node.get_edge(search[0]) else {
-                return Ok(None);
+                return None;
             };
 
             if !search.starts_with(next_node.prefix) {
-                return Ok(None);
+                return None;
             }
 
             search = &search[next_node.prefix.len()..];

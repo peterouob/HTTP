@@ -142,20 +142,20 @@ mod test {
         fn test_tree_find_basic_cases() {
             let mut tree: RadixTree<&str> = RadixTree::new(Node::default());
 
-            assert_eq!(tree.find(b"missing").unwrap(), None);
-            assert_eq!(tree.find(b"").unwrap(), None);
+            assert_eq!(tree.find(b"missing"), None);
+            assert_eq!(tree.find(b""), None);
 
             tree.insert(b"a", "a_val").unwrap();
             tree.insert(b"ab", "ab_val").unwrap();
             tree.insert(b"abc", "abc_val").unwrap();
 
-            assert_eq!(tree.find(b"a").unwrap(), Some(&"a_val"));
-            assert_eq!(tree.find(b"ab").unwrap(), Some(&"ab_val"));
-            assert_eq!(tree.find(b"abc").unwrap(), Some(&"abc_val"));
+            assert_eq!(tree.find(b"a"), Some(&"a_val"));
+            assert_eq!(tree.find(b"ab"), Some(&"ab_val"));
+            assert_eq!(tree.find(b"abc"), Some(&"abc_val"));
 
-            assert_eq!(tree.find(b"abcd").unwrap(), None);
-            assert_eq!(tree.find(b"b").unwrap(), None);
-            assert_eq!(tree.find(b"").unwrap(), None);
+            assert_eq!(tree.find(b"abcd"), None);
+            assert_eq!(tree.find(b"b"), None);
+            assert_eq!(tree.find(b""), None);
         }
 
         #[test]
@@ -169,22 +169,22 @@ mod test {
             tree.insert(b"rubicon", "r5").unwrap();
             tree.insert(b"rubens", "r6").unwrap();
 
-            assert_eq!(tree.find(b"romane").unwrap(), Some(&"r1"));
-            assert_eq!(tree.find(b"romanus").unwrap(), Some(&"r2"));
-            assert_eq!(tree.find(b"roman").unwrap(), Some(&"r3"));
-            assert_eq!(tree.find(b"romulus").unwrap(), Some(&"r4"));
-            assert_eq!(tree.find(b"rubicon").unwrap(), Some(&"r5"));
-            assert_eq!(tree.find(b"rubens").unwrap(), Some(&"r6"));
+            assert_eq!(tree.find(b"romane"), Some(&"r1"));
+            assert_eq!(tree.find(b"romanus"), Some(&"r2"));
+            assert_eq!(tree.find(b"roman"), Some(&"r3"));
+            assert_eq!(tree.find(b"romulus"), Some(&"r4"));
+            assert_eq!(tree.find(b"rubicon"), Some(&"r5"));
+            assert_eq!(tree.find(b"rubens"), Some(&"r6"));
 
-            assert_eq!(tree.find(b"r").unwrap(), None);
-            assert_eq!(tree.find(b"ro").unwrap(), None);
-            assert_eq!(tree.find(b"rom").unwrap(), None);
-            assert_eq!(tree.find(b"roma").unwrap(), None);
-            assert_eq!(tree.find(b"romanu").unwrap(), None);
-            assert_eq!(tree.find(b"romanes").unwrap(), None);
-            assert_eq!(tree.find(b"romaneX").unwrap(), None);
-            assert_eq!(tree.find(b"rub").unwrap(), None);
-            assert_eq!(tree.find(b"rubicons").unwrap(), None);
+            assert_eq!(tree.find(b"r"), None);
+            assert_eq!(tree.find(b"ro"), None);
+            assert_eq!(tree.find(b"rom"), None);
+            assert_eq!(tree.find(b"roma"), None);
+            assert_eq!(tree.find(b"romanu"), None);
+            assert_eq!(tree.find(b"romanes"), None);
+            assert_eq!(tree.find(b"romaneX"), None);
+            assert_eq!(tree.find(b"rub"), None);
+            assert_eq!(tree.find(b"rubicons"), None);
         }
 
         #[test]
@@ -197,17 +197,17 @@ mod test {
             tree.insert(b"a/b", "d2").unwrap();
             tree.insert(b"a", "d1").unwrap();
 
-            assert_eq!(tree.find(b"a").unwrap(), Some(&"d1"));
-            assert_eq!(tree.find(b"a/b").unwrap(), Some(&"d2"));
-            assert_eq!(tree.find(b"a/b/c").unwrap(), Some(&"d3"));
-            assert_eq!(tree.find(b"a/b/c/d").unwrap(), Some(&"d4"));
-            assert_eq!(tree.find(b"a/b/c/d/e").unwrap(), Some(&"deep"));
+            assert_eq!(tree.find(b"a"), Some(&"d1"));
+            assert_eq!(tree.find(b"a/b"), Some(&"d2"));
+            assert_eq!(tree.find(b"a/b/c"), Some(&"d3"));
+            assert_eq!(tree.find(b"a/b/c/d"), Some(&"d4"));
+            assert_eq!(tree.find(b"a/b/c/d/e"), Some(&"deep"));
 
-            assert_eq!(tree.find(b"a/").unwrap(), None);
-            assert_eq!(tree.find(b"a/b/").unwrap(), None);
-            assert_eq!(tree.find(b"a/b/c/d/e/f").unwrap(), None);
-            assert_eq!(tree.find(b"a/x").unwrap(), None);
-            assert_eq!(tree.find(b"a/b/x").unwrap(), None);
+            assert_eq!(tree.find(b"a/"), None);
+            assert_eq!(tree.find(b"a/b/"), None);
+            assert_eq!(tree.find(b"a/b/c/d/e/f"), None);
+            assert_eq!(tree.find(b"a/x"), None);
+            assert_eq!(tree.find(b"a/b/x"), None);
         }
 
         #[test]
@@ -219,25 +219,25 @@ mod test {
             tree.insert(b"abe", "abe").unwrap();
             tree.insert(b"ab", "ab").unwrap();
 
-            assert_eq!(tree.find(b"ab").unwrap(), Some(&"ab"));
-            assert_eq!(tree.find(b"abc").unwrap(), Some(&"abc"));
-            assert_eq!(tree.find(b"abd").unwrap(), Some(&"abd"));
-            assert_eq!(tree.find(b"abe").unwrap(), Some(&"abe"));
+            assert_eq!(tree.find(b"ab"), Some(&"ab"));
+            assert_eq!(tree.find(b"abc"), Some(&"abc"));
+            assert_eq!(tree.find(b"abd"), Some(&"abd"));
+            assert_eq!(tree.find(b"abe"), Some(&"abe"));
 
-            assert_eq!(tree.find(b"a").unwrap(), None);
-            assert_eq!(tree.find(b"abf").unwrap(), None);
-            assert_eq!(tree.find(b"abcd").unwrap(), None);
-            assert_eq!(tree.find(b"ac").unwrap(), None);
+            assert_eq!(tree.find(b"a"), None);
+            assert_eq!(tree.find(b"abf"), None);
+            assert_eq!(tree.find(b"abcd"), None);
+            assert_eq!(tree.find(b"ac"), None);
 
             tree.insert(b"test/api", "t1").unwrap();
             tree.insert(b"best/api", "t2").unwrap();
 
-            assert_eq!(tree.find(b"test/api").unwrap(), Some(&"t1"));
-            assert_eq!(tree.find(b"best/api").unwrap(), Some(&"t2"));
-            assert_eq!(tree.find(b"rest/api").unwrap(), None);
-            assert_eq!(tree.find(b"test").unwrap(), None);
-            assert_eq!(tree.find(b"test/").unwrap(), None);
-            assert_eq!(tree.find(b"test/apix").unwrap(), None);
+            assert_eq!(tree.find(b"test/api"), Some(&"t1"));
+            assert_eq!(tree.find(b"best/api"), Some(&"t2"));
+            assert_eq!(tree.find(b"rest/api"), None);
+            assert_eq!(tree.find(b"test"), None);
+            assert_eq!(tree.find(b"test/"), None);
+            assert_eq!(tree.find(b"test/apix"), None);
         }
 
         #[test]
@@ -249,59 +249,59 @@ mod test {
             tree.insert(&[0x00], "null").unwrap();
             tree.insert(b"a\0b", "null_mid").unwrap();
 
-            assert_eq!(tree.find(&[0xFF]).unwrap(), Some(&"ff"));
-            assert_eq!(tree.find(&[0x80]).unwrap(), Some(&"80"));
-            assert_eq!(tree.find(&[0x00]).unwrap(), Some(&"null"));
-            assert_eq!(tree.find(b"a\0b").unwrap(), Some(&"null_mid"));
+            assert_eq!(tree.find(&[0xFF]), Some(&"ff"));
+            assert_eq!(tree.find(&[0x80]), Some(&"80"));
+            assert_eq!(tree.find(&[0x00]), Some(&"null"));
+            assert_eq!(tree.find(b"a\0b"), Some(&"null_mid"));
 
-            assert_eq!(tree.find(&[0xFE]).unwrap(), None);
-            assert_eq!(tree.find(&[0x7F]).unwrap(), None);
-            assert_eq!(tree.find(b"a\0").unwrap(), None);
-            assert_eq!(tree.find(b"a\0bc").unwrap(), None);
+            assert_eq!(tree.find(&[0xFE]), None);
+            assert_eq!(tree.find(&[0x7F]), None);
+            assert_eq!(tree.find(b"a\0"), None);
+            assert_eq!(tree.find(b"a\0bc"), None);
 
             tree.insert("使用者".as_bytes(), "zh").unwrap();
             tree.insert("使用".as_bytes(), "zh_prefix").unwrap();
 
-            assert_eq!(tree.find("使用者".as_bytes()).unwrap(), Some(&"zh"));
-            assert_eq!(tree.find("使用".as_bytes()).unwrap(), Some(&"zh_prefix"));
-            assert_eq!(tree.find("使".as_bytes()).unwrap(), None);
-            assert_eq!(tree.find("使用者X".as_bytes()).unwrap(), None);
+            assert_eq!(tree.find("使用者".as_bytes()), Some(&"zh"));
+            assert_eq!(tree.find("使用".as_bytes()), Some(&"zh_prefix"));
+            assert_eq!(tree.find("使".as_bytes()), None);
+            assert_eq!(tree.find("使用者X".as_bytes()), None);
 
             let truncated = &"使用者".as_bytes()[..4];
-            assert_eq!(tree.find(truncated).unwrap(), None);
+            assert_eq!(tree.find(truncated), None);
 
             tree.insert(b"/api", "no_slash").unwrap();
             tree.insert(b"/api/", "trailing_slash").unwrap();
 
-            assert_eq!(tree.find(b"/api").unwrap(), Some(&"no_slash"));
-            assert_eq!(tree.find(b"/api/").unwrap(), Some(&"trailing_slash"));
-            assert_eq!(tree.find(b"/ap").unwrap(), None);
-            assert_eq!(tree.find(b"/api/x").unwrap(), None);
+            assert_eq!(tree.find(b"/api"), Some(&"no_slash"));
+            assert_eq!(tree.find(b"/api/"), Some(&"trailing_slash"));
+            assert_eq!(tree.find(b"/ap"), None);
+            assert_eq!(tree.find(b"/api/x"), None);
 
             let long_key = vec![b'x'; 4096];
             tree.insert(&long_key, "long").unwrap();
-            assert_eq!(tree.find(&long_key).unwrap(), Some(&"long"));
+            assert_eq!(tree.find(&long_key), Some(&"long"));
 
             let almost = vec![b'x'; 4095];
-            assert_eq!(tree.find(&almost).unwrap(), None);
+            assert_eq!(tree.find(&almost), None);
 
             let too_long = vec![b'x'; 4097];
-            assert_eq!(tree.find(&too_long).unwrap(), None);
+            assert_eq!(tree.find(&too_long), None);
         }
 
         #[test]
         fn test_tree_find_empty_and_root_cases() {
             let mut tree: RadixTree<&str> = RadixTree::new(Node::default());
 
-            assert_eq!(tree.find(b"").unwrap(), None);
-            assert_eq!(tree.find(b"anything").unwrap(), None);
+            assert_eq!(tree.find(b""), None);
+            assert_eq!(tree.find(b"anything"), None);
 
             tree.insert(b"x", "x").unwrap();
 
-            assert_eq!(tree.find(b"").unwrap(), None);
-            assert_eq!(tree.find(b"x").unwrap(), Some(&"x"));
-            assert_eq!(tree.find(b"y").unwrap(), None);
-            assert_eq!(tree.find(b"xx").unwrap(), None);
+            assert_eq!(tree.find(b""), None);
+            assert_eq!(tree.find(b"x"), Some(&"x"));
+            assert_eq!(tree.find(b"y"), None);
+            assert_eq!(tree.find(b"xx"), None);
         }
     }
 }
