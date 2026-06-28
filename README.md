@@ -2,6 +2,31 @@
 
 - This is a sample and safety http server
 
+# How to use
+
+```rust
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
+async fn main() -> Result<()> {
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let mut e = Engine::new();
+    e.get(b"/", |ctx|{
+        ctx.html("<h1>Hello, world!</h1>");
+        ctx.status(200);
+    });
+    e.post(b"/", |ctx| {
+        ctx.html("<h1>Hello, world! POST</h1>");
+        ctx.status(200);
+    });
+
+    run(addr, signal::ctrl_c(), Arc::from(e)).await;
+    Ok(())
+}
+```
+
+# Current Performance
+
+![](/assets/wrk.png)
+
 ## Goal
 
 - [x] TCP Foundation & Concurrency
@@ -46,6 +71,8 @@ src/
 ├── router/
 │   ├── mod.rs             # the definition of router module and re-export
 │   └── radix_tree.rs      # the definition of radix tree for router
+│   └── context.rs         # the definition of router context which contains request and response and do sth
+│   └── engine.rs          # the definition of router engine use this to insert router to tree and find router if it exists
 ├── main.rs                # server entry
 ├── lib.rs                 # definition module and re-export
 ├── server.rs              # Listener / Handle / setup_tcp core tcp server logic
@@ -279,3 +306,4 @@ k2: [ a ][ p ][ p ][ l ][ i ][ c ][ a ][ t ][ i ][ o ][ n ]
 - [graceful-shutdown](https://hyper.rs/guides/1/server/graceful-shutdown/)
 - [radix-tree](https://xixiliguo.github.io/algorithm/radix-tree)
 - [go-radix-tree](https://github.com/armon/go-radix)
+- [golang-gin](https://github.com/gin-gonic/gin)
