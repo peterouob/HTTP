@@ -9,7 +9,7 @@ pub mod connection;
 
 mod parse;
 
-mod router;
+pub mod router;
 pub mod server;
 
 use connection::Connection;

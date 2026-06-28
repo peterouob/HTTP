@@ -9,31 +9,31 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use bytes::BytesMut;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+use crate::router::engine::{Engine};
 
-#[derive(Debug)]
 pub struct Listener {
     listener: TcpListener,
     limit_connections: Arc<Semaphore>,
     token: CancellationToken,
     join_set: JoinSet<()>,
+    engine:Arc<Engine<'static>>,
 }
 
-#[derive(Debug)]
-pub struct Handle {
+pub struct Handle{
     connection: Connection,
     shutdown: Shutdown,
+    engine: Arc<Engine<'static>>,
 }
 
 const MAX_CONNECTIONS: usize = 4096;
 
-pub async fn run(addr: SocketAddr, shutdown: impl Future) {
+pub async fn run(addr: SocketAddr, shutdown: impl Future,engine:Arc<Engine<'static>>) {
     let token = CancellationToken::new();
     let join_set = JoinSet::new();
 
@@ -44,6 +44,7 @@ pub async fn run(addr: SocketAddr, shutdown: impl Future) {
         limit_connections: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
         token: token.clone(),
         join_set,
+        engine,
     };
 
     tokio::select! {
@@ -89,10 +90,11 @@ impl Listener {
             };
 
             let child_token = self.token.clone();
-
+            let engine = Arc::clone(&self.engine);
             let mut handler = Handle {
                 connection: Connection::new(socket),
                 shutdown: Shutdown::new(child_token),
+                engine,
             };
 
             self.join_set.spawn(async move {
@@ -175,82 +177,17 @@ impl Handle {
 
             let mut headers = HeaderMap::new();
             let mut req = Request::new(&mut headers);
+            let mut res_headers = HeaderMap::new();
+            let res = Response::new(&mut res_headers);
 
-            let result = req.parse_header(frame.as_ref());
-
-            let response_bytes = match result {
+            let response_bytes = match req.parse_header(frame.as_ref()) {
                 Ok(Complete(())) => {
-                    build_hello_response(&req)
+                    self.engine.dispatch(req,res)
                 }
-                Ok(Status::Partial) => {
-                    build_400_response()
-                }
-                Err(_) => {
-                    build_400_response()
-                }
+                _ => todo!(),
             };
 
-            drop(req);
-            drop(headers);
             self.connection.write_frame(&response_bytes).await?;
         }
     }
-}
-
-// HACK: THESE CODE IS GENERATE FROM AI SO WE NEED TO REWRITE LATER WHEN THE ROUTER WORK DONE
-fn build_hello_response(req: &Request) -> Vec<u8> {
-    let body = format!(
-        "<!DOCTYPE html>\n\
-         <html>\n\
-         <head><title>Hello</title></head>\n\
-         <body>\n\
-           <h1>Hello from Rust!</h1>\n\
-           <p>Method: {}</p>\n\
-           <p>Path: {}</p>\n\
-         </body>\n\
-         </html>\n",
-        req.method.unwrap_or("?"),
-        req.uri.unwrap_or("?"),
-    );
-    let body_bytes = body.into_bytes();
-
-    let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", b"text/html; charset=utf-8");
-    let len = body_bytes.len().to_string();
-    headers.insert("Content-Length", len.as_bytes());
-    headers.insert("Connection", b"close");
-
-    let resp = Response {
-        version: Some(1),
-        status_code: Some(200),
-        reason: Some("OK"),
-        headers: &mut headers,
-    };
-
-    let mut out = BytesMut::with_capacity(512);
-    resp.write_to(&mut out);
-    out.extend_from_slice(&body_bytes);
-    out.to_vec()
-}
-
-fn build_400_response() -> Vec<u8> {
-    let body = b"<h1>400 Bad Request</h1>";
-
-    let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", b"text/html");
-    let len = body.len().to_string();
-    headers.insert("Content-Length", len.as_bytes());
-    headers.insert("Connection", b"close");
-
-    let resp = Response {
-        version: Some(1),
-        status_code: Some(400),
-        reason: Some("Bad Request"),
-        headers: &mut headers,
-    };
-
-    let mut out = BytesMut::with_capacity(512);
-    resp.write_to(&mut out);
-    out.extend_from_slice(body);
-    out.to_vec()
 }
