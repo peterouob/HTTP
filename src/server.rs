@@ -169,7 +169,6 @@ impl Handle {
                 }
             };
 
-            // TODO: use http frame instead currently hardcode message
             let frame = match maybe_frame {
                 Some(frame) => frame,
                 None => return Ok(()),
@@ -184,7 +183,7 @@ impl Handle {
                 Ok(Complete(())) => {
                     self.engine.dispatch(req,res)
                 }
-                _ => todo!(),
+                _ => return Err(anyhow!("this make some error from parse header")),
             };
 
             self.connection.write_frame(&response_bytes).await?;
