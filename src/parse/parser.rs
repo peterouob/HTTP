@@ -1,4 +1,4 @@
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut};
 
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
@@ -181,6 +181,7 @@ pub struct Response<'h, 'b> {
     pub status_code: Option<u16>,
     pub reason: Option<&'b str>,
     pub headers: &'h mut HeaderMap<'b>,
+    pub body: Vec<u8>,
 }
 
 impl<'h, 'b> fmt::Display for Response<'h, 'b> {
@@ -203,6 +204,7 @@ impl<'h, 'b> Response<'h, 'b> {
             status_code: None,
             reason: None,
             headers,
+            body: Vec::new(),
         }
     }
 
@@ -237,9 +239,10 @@ impl<'h, 'b> Response<'h, 'b> {
     }
 
     #[inline]
-    pub fn write_to(&self, buf: &mut BytesMut) {
-        buf.put_slice(b"HTTP/1.");       
-        buf.put_u8(self.version.unwrap_or(0));
+    pub fn build(&self) -> Vec<u8>{
+        let mut  buf = Vec::with_capacity(self.body.len() + 1024);
+        buf.put_slice(b"HTTP/1.");
+        buf.put_u8(b'0' + self.version.unwrap_or(1));
         buf.put_u8(b' ');
 
         let code = self.status_code.unwrap_or(200);
@@ -251,14 +254,22 @@ impl<'h, 'b> Response<'h, 'b> {
         buf.put_slice(self.reason.unwrap_or("OK").as_bytes());
         buf.put_slice(b"\r\n");
 
-        for (name,value) in self.headers.header.iter() {
+        for (name, value) in self.headers.header.iter() {
             buf.put_slice(name.as_bytes());
             buf.put_slice(b": ");
             buf.put_slice(value);
             buf.put_slice(b"\r\n");
         }
 
+        if !self.headers.header.contains_key("Content-Length") {
+            buf.put_slice(b"Content-Length: ");
+            buf.put_slice(self.body.len().to_string().as_bytes());
+            buf.put_slice(b"\r\n");
+        }
+
         buf.put_slice(b"\r\n");
+        buf.put_slice(&self.body);
+        buf
     }
 }
 
