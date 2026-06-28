@@ -1,12 +1,11 @@
 use crate::router::error::RouterError;
 use crate::router::error::RouterResult;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{fmt, mem};
 
 #[derive(Debug)]
 pub(crate) struct LeafNode<'a, T> {
-    key: &'a [u8],
+    _key: &'a [u8],
     value: T,
 }
 
@@ -159,7 +158,7 @@ pub(crate) fn insert_recursive<'a, T>(
                     if child.leaf_node.is_some() {
                         return Err(RouterError::DuplicateKey);
                     }
-                    child.leaf_node = Some(LeafNode { key: label, value });
+                    child.leaf_node = Some(LeafNode { _key: label, value });
                     return Ok(());
                 }
                 insert_recursive(child, &label[lcp..], value)
@@ -170,9 +169,9 @@ pub(crate) fn insert_recursive<'a, T>(
                 child.prefix = &child.prefix[lcp..];
 
                 let (split_node_leaf, tail_node_leaf) = if suffix.is_empty() {
-                    (Some(LeafNode { key: label, value }), None)
+                    (Some(LeafNode { _key: label, value }), None)
                 } else {
-                    (None, Some(LeafNode { key: label, value }))
+                    (None, Some(LeafNode { _key: label, value }))
                 };
 
                 let mut split_node = Node::new(split_node_leaf, split_prefix);
@@ -196,7 +195,7 @@ pub(crate) fn insert_recursive<'a, T>(
             }
         }
         None => {
-            let leaf_node = LeafNode { key: label, value };
+            let leaf_node = LeafNode { _key: label, value };
             let prefix = label;
             let edge = Edge {
                 label,

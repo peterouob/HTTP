@@ -4,7 +4,6 @@ use std::fmt;
 pub enum RouterError {
     DuplicateKey,
     NullKey,
-    NullValue,
 }
 
 pub(crate) type RouterResult<T> = Result<T, RouterError>;
@@ -15,7 +14,6 @@ impl RouterError {
         match *self {
             RouterError::DuplicateKey => "Key already exists",
             RouterError::NullKey => "Key does not exist",
-            RouterError::NullValue => "Value does not exist",
         }
     }
 }

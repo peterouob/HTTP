@@ -1,4 +1,5 @@
-mod engine;
+pub mod engine;
 mod error;
 mod radix_tree;
 mod tests;
+mod context;
