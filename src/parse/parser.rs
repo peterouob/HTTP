@@ -61,7 +61,8 @@ impl<'h, 'b> Request<'h, 'b> {
         }
     }
 
-    pub fn parse_header(&mut self, bytes: &'b [u8]) -> Result<Status<()>, ParseError> {
+    pub fn parse_header(&mut self, bytes: &'b [u8]) -> Result<Status<usize>, ParseError> {
+        let origin_len = bytes.len();
         let mut bytes = ParseBuffer::new(bytes);
         complete!(skip_empty_line(&mut bytes));
         let method = complete!(parse_method(&mut bytes));
@@ -70,9 +71,9 @@ impl<'h, 'b> Request<'h, 'b> {
         self.version = Some(complete!(parse_version(&mut bytes)));
 
         newline!(bytes);
-
-        complete!(parse_header_iter(&mut bytes, self.headers));
-        Ok(Status::Complete(()))
+        let len = origin_len - bytes.len();
+        let header_len = complete!(parse_header_iter(&mut bytes, self.headers));
+        Ok(Status::Complete(len+header_len))
     }
 }
 

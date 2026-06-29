@@ -202,7 +202,7 @@ impl<'a> Uri<'a> {
                     self.path = self.raw.slice();
                     self.raw.advance(1);
                     self.raw.commit();
-                    self.raw.to_the_tail();
+                    self.raw.go_the_tail();
                     self.query = self.raw.slice();
                     break;
                 }
@@ -211,7 +211,7 @@ impl<'a> Uri<'a> {
                     continue;
                 }
                 None => {
-                    self.raw.to_the_tail();
+                    self.raw.go_the_tail();
                     self.path = self.raw.slice();
                     self.query = None;
                 }

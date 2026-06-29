@@ -65,6 +65,11 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
+
+    #[inline]
     pub fn commit(&mut self) {
         self.start = self.cursor;
     }
@@ -80,7 +85,7 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
-    pub fn to_the_tail(&mut self) {
+    pub fn go_the_tail(&mut self) {
         let s = self.buf.get(self.cursor..);
         self.cursor = self.buf.len();
     }
