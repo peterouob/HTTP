@@ -98,8 +98,7 @@ impl<'a, T> RadixTree<'a, T> {
 
         loop {
             if search.is_empty() {
-                let leaf = node.leaf_node.as_ref().map(|leaf| &leaf.value).unwrap();
-                return Some(leaf);
+                return node.leaf_node.as_ref().map(|leaf| &leaf.value)
             }
 
             let Some(next_node) = node.get_edge(search[0]) else {

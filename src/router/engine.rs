@@ -1,5 +1,5 @@
-use std::ops::Deref;
 use crate::parse::parser::{Request, Response};
+use crate::parse::uri::Uri;
 use crate::router::context::Context;
 use crate::router::radix_tree::{Node, RadixTree};
 
@@ -30,9 +30,15 @@ impl<'a> Engine<'a> {
         self
     }
 
-    pub(crate) fn dispatch<'h,'b>(&self, req: Request<'h,'b>, mut res:Response<'h,'b>) -> Vec<u8> {
+    pub(crate) fn dispatch<'h,'b>(&self, req: &Request<'h,'b>, res:&mut Response<'h,'b>) -> Vec<u8> {
         let method = req.method.unwrap_or("GET");
         let path = req.uri.unwrap_or("/").as_bytes();
+
+        let mut uri = Uri::new(path);
+        uri.split();
+        uri.split_query_string();
+
+        let path = uri.path.unwrap_or(b"/");
 
         let tree = match method {
             "GET" => &self.get_tree,
@@ -42,7 +48,7 @@ impl<'a> Engine<'a> {
 
         match tree.find(path) {
             Some(handle) => {
-              let mut ctx = Context::new(&req, &mut res);
+              let mut ctx = Context::new(req, res,uri);
                 handle(&mut ctx);
                 ctx.res.build()
             },
