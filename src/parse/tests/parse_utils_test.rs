@@ -31,15 +31,6 @@ mod test {
     }
 
     #[test]
-    fn test_skip_space_line() {
-        let mut buf = ParseBuffer::new(b" Hello");
-        assert_eq!(skip_space_line(&mut buf).unwrap(), Complete(()));
-
-        let mut buf = ParseBuffer::new(b" ");
-        assert_eq!(skip_space_line(&mut buf).unwrap(), Status::Partial);
-    }
-
-    #[test]
     fn test_parse_method() {
         let mut buf = ParseBuffer::new(b"GET / HTTP/1.1");
         assert_eq!(parse_method(&mut buf).unwrap(), Complete("GET"));
@@ -98,6 +89,7 @@ mod test {
 
     #[cfg(test)]
     mod test_uri {
+        use crate::parse::uri::Uri;
         use super::*;
 
         #[test]

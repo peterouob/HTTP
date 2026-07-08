@@ -1,4 +1,4 @@
-use bytes::{BufMut};
+use bytes::BufMut;
 
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::iter::ParseBuffer;
@@ -61,9 +61,9 @@ impl<'h, 'b> Request<'h, 'b> {
         }
     }
 
-    pub fn parse_header(&mut self, bytes: &'b [u8]) -> Result<Status<usize>, ParseError> {
-        let origin_len = bytes.len();
-        let mut bytes = ParseBuffer::new(bytes);
+    pub fn parse_header(&mut self, buf: &'b [u8]) -> Result<Status<usize>, ParseError> {
+        let origin_len = buf.len();
+        let mut bytes = ParseBuffer::new(buf);
         complete!(skip_empty_line(&mut bytes));
         let method = complete!(parse_method(&mut bytes));
         self.method = Some(method);
@@ -73,7 +73,7 @@ impl<'h, 'b> Request<'h, 'b> {
         newline!(bytes);
         let len = origin_len - bytes.len();
         let header_len = complete!(parse_header_iter(&mut bytes, self.headers));
-        Ok(Status::Complete(len+header_len))
+        Ok(Status::Complete(len + header_len))
     }
 }
 
@@ -81,7 +81,7 @@ pub fn parse_header_iter<'a>(
     bytes: &mut ParseBuffer<'a>,
     headers: &mut HeaderMap<'a>,
 ) -> ParseResult<usize> {
-    let start = bytes.as_ref().as_ptr() as usize;
+    let start = bytes.cursor;
     let result;
 
     loop {
@@ -89,13 +89,13 @@ pub fn parse_header_iter<'a>(
 
         if b == b'\r' {
             expect!(bytes.peek()==b'\n'=>Err(ParseError::NewLine));
-            let end = bytes.as_ref().as_ptr() as usize;
+            let end = bytes.cursor;
             result = Ok(Status::Complete(end - start));
             break;
         }
 
         if b == b'\n' {
-            let end = bytes.as_ref().as_ptr() as usize;
+            let end = bytes.cursor;
             result = Ok(Status::Complete(end - start));
             break;
         }
@@ -141,7 +141,6 @@ pub fn parse_header_iter<'a>(
                 }
 
                 let whitespace_slice = bytes.slice().unwrap();
-                println!("whitespace_slice: {:?}", whitespace_slice);
                 break 'value &whitespace_slice[0..0];
             }
 
@@ -240,8 +239,8 @@ impl<'h, 'b> Response<'h, 'b> {
     }
 
     #[inline]
-    pub fn build(&self) -> Vec<u8>{
-        let mut  buf = Vec::with_capacity(self.body.len() + 1024);
+    pub fn build(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(self.body.len() + 1024);
         buf.put_slice(b"HTTP/1.");
         buf.put_u8(b'0' + self.version.unwrap_or(1));
         buf.put_u8(b' ');
