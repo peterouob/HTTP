@@ -1,6 +1,7 @@
 use crate::error::TCPSocketError;
 use crate::parse::parser::Status::Complete;
 use crate::parse::parser::{HeaderMap, Request, Response, Status};
+use crate::router::engine::Engine;
 use crate::{Connection, Shutdown};
 use anyhow::{Result, anyhow};
 use rand::RngExt;
@@ -15,25 +16,18 @@ use tokio::task::JoinSet;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use crate::router::engine::{Engine};
 
 pub struct Listener {
     listener: TcpListener,
     limit_connections: Arc<Semaphore>,
     token: CancellationToken,
     join_set: JoinSet<()>,
-    engine:Arc<Engine<'static>>,
-}
-
-pub struct Handle{
-    connection: Connection,
-    shutdown: Shutdown,
     engine: Arc<Engine<'static>>,
 }
 
 const MAX_CONNECTIONS: usize = 4096;
 
-pub async fn run(addr: SocketAddr, shutdown: impl Future,engine:Arc<Engine<'static>>) {
+pub async fn run(addr: SocketAddr, shutdown: impl Future, engine: Arc<Engine<'static>>) {
     let token = CancellationToken::new();
     let join_set = JoinSet::new();
 
@@ -91,31 +85,24 @@ impl Listener {
 
             let child_token = self.token.clone();
             let engine = Arc::clone(&self.engine);
-            let mut handler = Handle {
-                connection: Connection::new(socket),
-                shutdown: Shutdown::new(child_token),
-                engine,
-            };
+            let mut shutdown = Shutdown::new(child_token);
+
+            let conn = Connection::new(socket);
 
             self.join_set.spawn(async move {
-                if let Err(err) = handler.run().await {
-                    if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
-                        match io_err.kind() {
-                            ErrorKind::ConnectionAborted
-                            | ErrorKind::BrokenPipe
-                            | ErrorKind::ConnectionReset => {
-                                info!(cause = ?io_err, "listener closed, shutting down");
-                            }
-
-                            _ => error!(cause = ?io_err, "unexpected io error"),
-                        }
-                    } else {
-                        error!(cause = ?err, "unexpected error in listener");
-                    }
-                }
-
+                conn.await;
                 drop(permit);
             });
+
+            tokio::select! {
+                _ = self.token.cancelled() => {
+                    info!("shutdown signal received, shutting down connection");
+                    return Ok(())
+                }
+                _ = shutdown.recv() => {
+                    info!("shutdown signal received, shutting down connection");
+                }
+            }
         }
     }
 
@@ -156,37 +143,4 @@ pub fn setup_tcp(addr: SocketAddr) -> Result<TcpListener> {
 
     let std_listen: std::net::TcpListener = socket.into();
     Ok(TcpListener::from_std(std_listen)?)
-}
-
-impl Handle {
-    pub async fn run(&mut self) -> Result<()> {
-        loop {
-            let maybe_frame = tokio::select! {
-                res = self.connection.read_frame() => res?,
-                _ = self.shutdown.recv() => {
-                    info!("shutdown signal received, shutting down connection");
-                    return Ok(());
-                }
-            };
-
-            let frame = match maybe_frame {
-                Some(frame) => frame,
-                None => return Ok(()),
-            };
-
-            let mut headers = HeaderMap::new();
-            let mut req = Request::new(&mut headers);
-            let mut res_headers = HeaderMap::new();
-            let res = Response::new(&mut res_headers);
-
-            let response_bytes = match req.parse_header(frame.as_ref()) {
-                Ok(Complete(())) => {
-                    self.engine.dispatch(req,res)
-                }
-                _ => return Err(anyhow!("this make some error from parse header")),
-            };
-
-            self.connection.write_frame(&response_bytes).await?;
-        }
-    }
 }
